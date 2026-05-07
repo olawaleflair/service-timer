@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Main Service Timer desktop capability","local":true,"windows":["main","stage"],"permissions":["core:default","core:event:default","core:window:default","store:default","window-state:default"]}}
