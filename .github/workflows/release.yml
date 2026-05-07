@@ -16,7 +16,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, windows-latest]
+        include:
+          - platform: macos-latest
+            bundle-args: --bundles dmg
+          - platform: windows-latest
+            bundle-args: --bundles msi,nsis
 
     steps:
       - name: Checkout repository
@@ -58,3 +62,4 @@ jobs:
           releaseBody: "Draft release for Service Timer ${{ github.ref_name }}. Test the generated installers before publishing."
           releaseDraft: true
           prerelease: false
+          args: ${{ matrix.bundle-args }}
