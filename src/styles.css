@@ -532,6 +532,10 @@ textarea:focus {
   width: 100%;
 }
 
+.display-select-spaced {
+  margin-bottom: 10px;
+}
+
 .section-heading {
   display: flex;
   align-items: center;
@@ -833,6 +837,13 @@ textarea:focus {
   color: var(--red);
   font-size: 13px;
   margin-bottom: 0;
+}
+
+.action-warning {
+  color: var(--red);
+  margin: -4px 0 0;
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 /* ─── Report ─────────────────────────────────────────────────── */

@@ -102,18 +102,42 @@ fn open_stage_display(app: AppHandle, display_id: String, test_mode: bool) -> Re
         }
     };
 
-    if let Some(monitor) = find_monitor(&app, &display_id)? {
-        window
-            .set_position(PhysicalPosition::new(monitor.position().x, monitor.position().y))
-            .map_err(|error| error.to_string())?;
-        window
-            .set_size(PhysicalSize::new(monitor.size().width, monitor.size().height))
-            .map_err(|error| error.to_string())?;
+    let monitors = app.available_monitors().map_err(|error| error.to_string())?;
+    let target_monitor = find_monitor_from_list(&monitors, &display_id).or_else(|| {
+        app.primary_monitor()
+            .ok()
+            .flatten()
+            .or_else(|| monitors.first().cloned())
+    });
+    let use_fullscreen = monitors.len() > 1 && target_monitor.as_ref().map(|monitor| !is_primary_monitor(&app, monitor)).unwrap_or(false);
+
+    if let Some(monitor) = target_monitor {
+        let position = monitor.position();
+        let size = monitor.size();
+        if use_fullscreen {
+            window
+                .set_position(PhysicalPosition::new(position.x, position.y))
+                .map_err(|error| error.to_string())?;
+            window
+                .set_size(PhysicalSize::new(size.width, size.height))
+                .map_err(|error| error.to_string())?;
+        } else {
+            let width = (size.width / 2).max(720).min(size.width);
+            let height = (size.height / 2).max(420).min(size.height);
+            let x = position.x + 80;
+            let y = position.y + 80;
+            window
+                .set_position(PhysicalPosition::new(x, y))
+                .map_err(|error| error.to_string())?;
+            window
+                .set_size(PhysicalSize::new(width, height))
+                .map_err(|error| error.to_string())?;
+        }
     }
 
     window.show().map_err(|error| error.to_string())?;
-    window.set_fullscreen(true).map_err(|error| error.to_string())?;
-    window.set_focus().ok();
+    window.set_decorations(!use_fullscreen).ok();
+    window.set_fullscreen(use_fullscreen).map_err(|error| error.to_string())?;
     app.emit_to(
         "main",
         "stage-status",
@@ -180,19 +204,29 @@ fn close_application(app: AppHandle) {
     app.exit(0);
 }
 
-fn find_monitor(app: &AppHandle, selected_id: &str) -> Result<Option<Monitor>, String> {
-    let monitors = app.available_monitors().map_err(|error| error.to_string())?;
-    for (index, monitor) in monitors.into_iter().enumerate() {
+fn find_monitor_from_list(monitors: &[Monitor], selected_id: &str) -> Option<Monitor> {
+    for (index, monitor) in monitors.iter().enumerate() {
         let name = monitor
             .name()
             .map(ToOwned::to_owned)
             .unwrap_or_else(|| format!("Display {}", index + 1));
         let position = monitor.position();
         if display_id(index, &name, position.x, position.y) == selected_id {
-            return Ok(Some(monitor));
+            return Some(monitor.clone());
         }
     }
-    Ok(None)
+    None
+}
+
+fn is_primary_monitor(app: &AppHandle, monitor: &Monitor) -> bool {
+    app.primary_monitor()
+        .ok()
+        .flatten()
+        .map(|primary| {
+            primary.position().x == monitor.position().x
+                && primary.position().y == monitor.position().y
+        })
+        .unwrap_or(false)
 }
 
 fn display_id(index: usize, name: &str, x: i32, y: i32) -> String {

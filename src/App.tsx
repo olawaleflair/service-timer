@@ -87,6 +87,7 @@ interface ConfirmModalState {
   title: string;
   message: string;
   confirmLabel: string;
+  cancelLabel?: string;
   tone?: "danger" | "normal";
   onConfirm: () => void;
 }
@@ -114,6 +115,24 @@ function emptyDraft(settings: Settings): DraftService {
   };
 }
 
+function primaryDisplay(displays: DisplayInfo[]): DisplayInfo | null {
+  return displays.find((display) => display.isPrimary) ?? displays[0] ?? null;
+}
+
+function resolveStageDisplayId(displays: DisplayInfo[], selectedDisplayId: string | null): string | null {
+  const selected = selectedDisplayId ? displays.find((display) => display.id === selectedDisplayId) : null;
+  return selected?.connected ? selected.id : primaryDisplay(displays)?.id ?? null;
+}
+
+function stageSetupMessage(displays: DisplayInfo[], selectedDisplayId: string | null): string {
+  if (displays.length <= 1) {
+    return "Only one display detected. Stage display will open in a separate window on this screen.";
+  }
+  const selected = selectedDisplayId ? displays.find((display) => display.id === selectedDisplayId) : null;
+  if (selected?.connected) return `Stage display will open on ${selected.name}.`;
+  return "Choose a display, or start live control to open the stage display on the primary screen.";
+}
+
 export default function App() {
   const [state, setState] = useState<AppState>(initialState);
   const [draft, setDraft] = useState<DraftService>(() => emptyDraft(defaultSettings()));
@@ -133,6 +152,8 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
   const hydrated = useRef(false);
   const stateRef = useRef<AppState>(initialState);
+  const displayIdsRef = useRef<Set<string>>(new Set());
+  const promptedDisplayIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     stateRef.current = state;
@@ -140,17 +161,64 @@ export default function App() {
 
   const refreshDisplays = useCallback(async () => {
     const nextDisplays = await listDisplays();
+    const previousIds = displayIdsRef.current;
+    const nextIds = new Set(nextDisplays.map((display) => display.id));
+    const newlyDetected = nextDisplays.filter((display) => !previousIds.has(display.id) && !display.isPrimary);
+    displayIdsRef.current = nextIds;
     setDisplays(nextDisplays);
+
+    const currentState = stateRef.current;
+    const activeService = currentState.activeService;
+    const selectedId = activeService?.selectedDisplayId ?? currentState.settings.lastSelectedDisplayId;
+    const selected = selectedId ? nextDisplays.find((display) => display.id === selectedId) : null;
+    const connected = Boolean(selected?.connected);
+    const primary = primaryDisplay(nextDisplays);
+
+    if (activeService && selectedId && !connected && primary) {
+      await openStageDisplay(primary.id, false);
+      setState((current) => ({
+        ...current,
+        activeService: current.activeService
+          ? { ...current.activeService, selectedDisplayId: primary.id }
+          : current.activeService,
+        stageDisplayStatus: {
+          opened: true,
+          connected: true,
+          message: "Selected display disconnected. Stage display moved to the primary screen.",
+        },
+      }));
+      return;
+    }
+
+    if (activeService && nextDisplays.length > 1) {
+      const candidate = newlyDetected.find((display) => !promptedDisplayIdsRef.current.has(display.id));
+      if (candidate) {
+        promptedDisplayIdsRef.current.add(candidate.id);
+        setConfirmModal({
+          title: "Second display detected",
+          message: "A second display is now available. Do you want to move the stage display to it?",
+          cancelLabel: "Keep here",
+          confirmLabel: "Move stage display",
+          tone: "normal",
+          onConfirm: () => {
+            setConfirmModal(null);
+            void moveStageDisplayTo(candidate.id);
+          },
+        });
+      }
+    }
+
     setState((current) => {
-      const selectedId = current.activeService?.selectedDisplayId ?? current.settings.lastSelectedDisplayId;
-      const selected = selectedId ? nextDisplays.find((display) => display.id === selectedId) : null;
-      const connected = Boolean(selected?.connected);
       return {
         ...current,
         stageDisplayStatus: {
           ...current.stageDisplayStatus,
           connected,
-          message: selectedId && !connected ? "Selected display disconnected." : current.stageDisplayStatus.message,
+          message: current.activeService
+            ? selectedId && !connected
+              ? "Selected display disconnected."
+              : current.stageDisplayStatus.message
+            : stageSetupMessage(nextDisplays, current.settings.lastSelectedDisplayId),
         },
       };
     });
@@ -274,29 +342,37 @@ export default function App() {
   };
 
   const openOrTestStage = async (testMode = true) => {
-    if (!draft.selectedDisplayId) {
+    const currentDisplays = displays.length > 0 ? displays : await listDisplays();
+    const targetDisplayId = resolveStageDisplayId(currentDisplays, draft.selectedDisplayId);
+    if (!targetDisplayId) {
       setState((current) => ({
         ...current,
-        stageDisplayStatus: { opened: false, connected: false, message: "Choose a display first." },
+        stageDisplayStatus: { opened: false, connected: false, message: "No display was detected." },
       }));
       return;
     }
-    await openStageDisplay(draft.selectedDisplayId, testMode);
+    await openStageDisplay(targetDisplayId, testMode);
     await publishStagePayload({
       mode: "test",
       sectionName: "Timer display connected",
       timerText: "",
       tone: "normal",
     });
-    setDraft((current) => ({ ...current, stageDisplayOpenedOnce: true }));
+    setDraft((current) => ({ ...current, selectedDisplayId: targetDisplayId, stageDisplayOpenedOnce: true }));
     setState((current) => ({
       ...current,
-      settings: { ...current.settings, lastSelectedDisplayId: draft.selectedDisplayId },
-      stageDisplayStatus: { opened: true, connected: true, message: "Stage display ready." },
+      settings: { ...current.settings, lastSelectedDisplayId: targetDisplayId },
+      stageDisplayStatus: {
+        opened: true,
+        connected: true,
+        message: currentDisplays.length <= 1
+          ? "Stage display opened in a separate window on this screen."
+          : "Stage display ready.",
+      },
     }));
   };
 
-  const createActiveService = () => {
+  const createActiveService = async () => {
     const warningSeconds = parseDuration(draft.warningInput);
     if (!draft.name.trim()) return showStageMessage("Service name is required.");
     if (warningSeconds === null || warningSeconds < 0) return showStageMessage("Warning time must use HH:MM:SS.");
@@ -304,8 +380,11 @@ export default function App() {
     if (draft.sections.some((section) => !section.name.trim() || section.adjustedDurationSeconds <= 0)) {
       return showStageMessage("Every section needs a name and duration greater than zero.");
     }
-    if (!draft.selectedDisplayId) return showStageMessage("Choose a stage display first.");
-    if (!draft.stageDisplayOpenedOnce) return showStageMessage("Open stage display first.");
+
+    const currentDisplays = displays.length > 0 ? displays : await listDisplays();
+    const targetDisplayId = resolveStageDisplayId(currentDisplays, draft.selectedDisplayId);
+    if (!targetDisplayId) return showStageMessage("No display was detected.");
+    await openStageDisplay(targetDisplayId, false);
 
     const startIndex = Math.max(
       0,
@@ -324,7 +403,7 @@ export default function App() {
       status: "setup",
       stageDisplayOpenedOnce: true,
       stageDisplayHidden: false,
-      selectedDisplayId: draft.selectedDisplayId,
+      selectedDisplayId: targetDisplayId,
       createdAt: now,
       updatedAt: now,
     };
@@ -332,7 +411,14 @@ export default function App() {
     setState((current) => ({
       ...current,
       activeService: service,
-      settings: { ...current.settings, lastSelectedDisplayId: draft.selectedDisplayId },
+      settings: { ...current.settings, lastSelectedDisplayId: targetDisplayId },
+      stageDisplayStatus: {
+        opened: true,
+        connected: true,
+        message: currentDisplays.length <= 1
+          ? "Stage display opened in a separate window on this screen."
+          : "Stage display ready.",
+      },
       screen: "live",
     }));
   };
@@ -346,6 +432,16 @@ export default function App() {
       if (!current.activeService) return current;
       return { ...current, activeService: updater(current.activeService) };
     });
+  };
+
+  const moveStageDisplayTo = async (displayId: string) => {
+    await openStageDisplay(displayId, false);
+    setState((current) => ({
+      ...current,
+      settings: { ...current.settings, lastSelectedDisplayId: displayId },
+      activeService: current.activeService ? { ...current.activeService, selectedDisplayId: displayId } : null,
+      stageDisplayStatus: { opened: true, connected: true, message: "Stage display moved." },
+    }));
   };
 
   const startSection = () => {
@@ -697,7 +793,7 @@ export default function App() {
             onApplyTime={applyTimeChange}
             onToggleStage={toggleStageHidden}
             onReopenStage={() => active.selectedDisplayId && openOrTestLiveStage(active.selectedDisplayId)}
-            onChooseDisplay={(displayId) => updateActive((service) => ({ ...service, selectedDisplayId: displayId }))}
+            onChooseDisplay={(displayId) => void moveStageDisplayTo(displayId)}
             onRefreshDisplays={refreshDisplays}
             onEnd={endService}
             updateActive={updateActive}
@@ -759,7 +855,7 @@ export default function App() {
           <p className="muted">{confirmModal.message}</p>
           <div className="button-row end">
             <button className="ghost large" onClick={() => setConfirmModal(null)}>
-              Cancel
+              {confirmModal.cancelLabel ?? "Cancel"}
             </button>
             <button className={`${confirmModal.tone === "danger" ? "danger" : "primary"} large`} onClick={confirmModal.onConfirm}>
               {confirmModal.confirmLabel}
@@ -992,6 +1088,14 @@ function ProgramBuilder({
   onStart: () => void;
   onBack: () => void;
 }) {
+  const isValidationMessage =
+    statusMessage.startsWith("Service name") ||
+    statusMessage.startsWith("Warning time") ||
+    statusMessage.startsWith("Add at least") ||
+    statusMessage.startsWith("Every section") ||
+    statusMessage.startsWith("No display");
+  const displayStatusMessage = isValidationMessage ? statusMessage : stageSetupMessage(displays, draft.selectedDisplayId);
+
   return (
     <section className="builder-layout">
       <div className="stack">
@@ -1038,8 +1142,8 @@ function ProgramBuilder({
           displays={displays}
           value={draft.selectedDisplayId}
           onChange={(displayId) => onDraft({ ...draft, selectedDisplayId: displayId })}
+          className="display-select-spaced"
         />
-        <p className="status-line">{statusMessage}</p>
         <button className="ghost icon-label" onClick={onRefreshDisplays}>
           <Monitor size={18} /> Refresh displays
         </button>
@@ -1052,6 +1156,7 @@ function ProgramBuilder({
         <button className="primary large" onClick={onStart}>
           Start Live Control
         </button>
+        {displayStatusMessage && <p className="action-warning">{displayStatusMessage}</p>}
       </aside>
     </section>
   );
@@ -1657,13 +1762,15 @@ function DisplaySelect({
   displays,
   value,
   onChange,
+  className,
 }: {
   displays: DisplayInfo[];
   value: string | null;
   onChange: (value: string) => void;
+  className?: string;
 }) {
   return (
-    <label>
+    <label className={className}>
       Stage display screen
       <select value={value ?? ""} onChange={(event) => onChange(event.target.value)}>
         <option value="">Choose display</option>
