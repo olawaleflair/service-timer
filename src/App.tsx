@@ -168,6 +168,13 @@ function stageSetupMessage(displays: DisplayInfo[], selectedDisplayId: string | 
   return "Choose a display, or start live control to open the stage display on the primary screen.";
 }
 
+function stageDisplayErrorMessage(error: unknown): string {
+  const detail = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  return detail
+    ? `Stage display could not open: ${detail}`
+    : "Stage display could not open. Live control can continue without it.";
+}
+
 export default function App() {
   const [state, setState] = useState<AppState>(initialState);
   const [draft, setDraft] = useState<DraftService>(() => emptyDraft(defaultSettings()));
@@ -436,13 +443,26 @@ export default function App() {
       }));
       return;
     }
-    await openStageDisplay(targetDisplayId, testMode);
-    await publishStagePayload({
-      mode: "test",
-      sectionName: "Timer display connected",
-      timerText: "",
-      tone: "normal",
-    });
+    try {
+      await openStageDisplay(targetDisplayId, testMode);
+      await publishStagePayload({
+        mode: "test",
+        sectionName: "Timer display connected",
+        timerText: "",
+        tone: "normal",
+      });
+    } catch (error) {
+      console.error("Stage display test failed.", error);
+      setState((current) => ({
+        ...current,
+        stageDisplayStatus: {
+          opened: false,
+          connected: false,
+          message: stageDisplayErrorMessage(error),
+        },
+      }));
+      return;
+    }
     setDraft((current) => ({ ...current, selectedDisplayId: targetDisplayId, stageDisplayOpenedOnce: true }));
     setState((current) => ({
       ...current,
@@ -469,7 +489,18 @@ export default function App() {
     const currentDisplays = displays.length > 0 ? displays : await listDisplays();
     const targetDisplayId = resolveStageDisplayId(currentDisplays, draft.selectedDisplayId);
     if (!targetDisplayId) return showStageMessage("No display was detected.");
-    await openStageDisplay(targetDisplayId, false);
+    let stageOpened = false;
+    let stageMessage =
+      currentDisplays.length <= 1
+        ? "Stage display opened in a separate window on this screen."
+        : "Stage display ready.";
+    try {
+      await openStageDisplay(targetDisplayId, false);
+      stageOpened = true;
+    } catch (error) {
+      console.error("Stage display failed to open while starting live control.", error);
+      stageMessage = `${stageDisplayErrorMessage(error)} Use Reopen stage display from live control when ready.`;
+    }
 
     const startIndex = Math.max(
       0,
@@ -486,7 +517,7 @@ export default function App() {
       sections,
       currentSectionId: sections[0]?.id ?? null,
       status: "setup",
-      stageDisplayOpenedOnce: true,
+      stageDisplayOpenedOnce: stageOpened,
       stageDisplayHidden: false,
       selectedDisplayId: targetDisplayId,
       createdAt: now,
@@ -498,11 +529,9 @@ export default function App() {
       activeService: service,
       settings: { ...current.settings, lastSelectedDisplayId: targetDisplayId },
       stageDisplayStatus: {
-        opened: true,
-        connected: true,
-        message: currentDisplays.length <= 1
-          ? "Stage display opened in a separate window on this screen."
-          : "Stage display ready.",
+        opened: stageOpened,
+        connected: stageOpened,
+        message: stageMessage,
       },
       screen: "live",
     }));
@@ -520,7 +549,20 @@ export default function App() {
   };
 
   const moveStageDisplayTo = async (displayId: string) => {
-    await openStageDisplay(displayId, false);
+    try {
+      await openStageDisplay(displayId, false);
+    } catch (error) {
+      console.error("Stage display move failed.", error);
+      setState((current) => ({
+        ...current,
+        stageDisplayStatus: {
+          opened: false,
+          connected: false,
+          message: stageDisplayErrorMessage(error),
+        },
+      }));
+      return;
+    }
     setState((current) => ({
       ...current,
       settings: { ...current.settings, lastSelectedDisplayId: displayId },
@@ -1165,7 +1207,20 @@ export default function App() {
   );
 
   async function openOrTestLiveStage(displayId: string) {
-    await openStageDisplay(displayId, false);
+    try {
+      await openStageDisplay(displayId, false);
+    } catch (error) {
+      console.error("Stage display reopen failed.", error);
+      setState((current) => ({
+        ...current,
+        stageDisplayStatus: {
+          opened: false,
+          connected: false,
+          message: stageDisplayErrorMessage(error),
+        },
+      }));
+      return;
+    }
     setState((current) => ({
       ...current,
       stageDisplayStatus: { opened: true, connected: true, message: "Stage display reopened." },
