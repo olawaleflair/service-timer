@@ -43,6 +43,10 @@ export async function closeApplication(): Promise<void> {
   await safeInvoke("close_application", undefined, undefined);
 }
 
+export async function setMainCloseGuard(guarded: boolean): Promise<void> {
+  await safeInvoke("set_main_close_guard", { guarded }, undefined);
+}
+
 export async function publishStagePayload(payload: StagePayload): Promise<void> {
   if (!isTauriRuntime()) {
     localStorage.setItem("service-timer-stage-payload", JSON.stringify(payload));
@@ -97,11 +101,18 @@ export async function onStageStatus(callback: (status: NativeStageStatus) => voi
 
 export async function onMainCloseRequested(shouldPreventClose: () => boolean): Promise<() => void> {
   if (!isTauriRuntime()) return () => undefined;
-  return getCurrentWindow().onCloseRequested((event) => {
+  const unlistenNative = await listen("main-close-requested", () => {
+    shouldPreventClose();
+  }).catch(() => null);
+  const unlistenWindow = await getCurrentWindow().onCloseRequested((event) => {
     if (shouldPreventClose()) {
       event.preventDefault();
     }
   });
+  return () => {
+    unlistenNative?.();
+    unlistenWindow();
+  };
 }
 
 export async function checkForUpdate(): Promise<{ available: boolean; message: string }> {

@@ -30,6 +30,9 @@ struct StagePayload {
 #[derive(Default)]
 struct StageState(Mutex<Option<StagePayload>>);
 
+#[derive(Default)]
+struct CloseGuardState(Mutex<bool>);
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StageWindowStatus {
@@ -198,10 +201,27 @@ fn check_for_update() -> UpdateCheck {
 
 #[tauri::command]
 fn close_application(app: AppHandle) {
+    exit_application(&app);
+}
+
+fn exit_application(app: &AppHandle) {
+    if let Ok(mut guarded) = app.state::<CloseGuardState>().0.lock() {
+        *guarded = false;
+    }
     if let Some(stage) = app.get_webview_window("stage") {
         let _ = stage.close();
     }
     app.exit(0);
+}
+
+#[tauri::command]
+fn set_main_close_guard(app: AppHandle, guarded: bool) -> Result<(), String> {
+    let state = app.state::<CloseGuardState>();
+    *state
+        .0
+        .lock()
+        .map_err(|_| "Close guard state lock failed.")? = guarded;
+    Ok(())
 }
 
 fn find_monitor_from_list(monitors: &[Monitor], selected_id: &str) -> Option<Monitor> {
@@ -237,16 +257,34 @@ fn display_id(index: usize, name: &str, x: i32, y: i32) -> String {
 pub fn run() {
     tauri::Builder::default()
         .manage(StageState::default())
+        .manage(CloseGuardState::default())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             if let Some(main) = app.get_webview_window("main") {
                 let app_for_events = app.handle().clone();
                 main.on_window_event(move |event| {
-                    if matches!(event, WindowEvent::Destroyed) {
-                        if let Some(stage) = app_for_events.get_webview_window("stage") {
-                            let _ = stage.close();
+                    match event {
+                        WindowEvent::CloseRequested { api, .. } => {
+                            let should_guard = app_for_events
+                                .state::<CloseGuardState>()
+                                .0
+                                .lock()
+                                .map(|guarded| *guarded)
+                                .unwrap_or(false);
+                            api.prevent_close();
+                            if should_guard {
+                                let _ = app_for_events.emit_to("main", "main-close-requested", ());
+                            } else {
+                                exit_application(&app_for_events);
+                            }
                         }
+                        WindowEvent::Destroyed => {
+                            if let Some(stage) = app_for_events.get_webview_window("stage") {
+                                let _ = stage.close();
+                            }
+                        }
+                        _ => {}
                     }
                 });
             }
@@ -258,7 +296,8 @@ pub fn run() {
             set_stage_payload,
             get_stage_payload,
             check_for_update,
-            close_application
+            close_application,
+            set_main_close_guard
         ])
         .run(tauri::generate_context!())
         .expect("error while running Service Timer");

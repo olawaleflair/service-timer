@@ -6,17 +6,20 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  Eye,
+  EyeOff,
   FileText,
   History,
   Home,
   Monitor,
+  Minus,
   Pause,
   Play,
   Plus,
   RotateCcw,
   Save,
   Settings as SettingsIcon,
-  Square,
+  StepBack,
   StepForward,
   Trash2,
   X,
@@ -40,6 +43,7 @@ import {
   onStageStatus,
   openStageDisplay,
   publishStagePayload,
+  setMainCloseGuard,
 } from "./services/tauri";
 import { defaultSettings, loadPersistedData, savePersistedData } from "./services/persistence";
 import { DurationInput } from "./components/DurationInput";
@@ -83,13 +87,43 @@ interface SectionModalState {
   error: string;
 }
 
+interface TemplateSaveModalState {
+  open: boolean;
+  name: string;
+  error: string;
+  saved: boolean;
+}
+
 interface ConfirmModalState {
   title: string;
   message: string;
   confirmLabel: string;
   cancelLabel?: string;
+  secondaryLabel?: string;
   tone?: "danger" | "normal";
+  secondaryTone?: "danger" | "normal";
+  error?: string;
   onConfirm: () => void;
+  onSecondary?: () => void;
+}
+
+type SetupMethod = "blank" | "template" | "paste";
+
+function isUnfinishedActiveService(service: ActiveService | null): service is ActiveService {
+  return Boolean(service && service.status !== "ended");
+}
+
+function hasReportableServiceActivity(service: ActiveService): boolean {
+  return service.sections.some(
+    (section) =>
+      section.actualElapsedSeconds > 0 ||
+      Boolean(section.startedAt) ||
+      Boolean(section.endedAt) ||
+      section.status === "running" ||
+      section.status === "paused" ||
+      section.status === "completed" ||
+      section.status === "skipped",
+  );
 }
 
 const initialState: AppState = {
@@ -141,6 +175,9 @@ export default function App() {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [pasteText, setPasteText] = useState("");
   const [parsedRows, setParsedRows] = useState<ParsedProgramRow[]>([]);
+  const [selectedSetupMethod, setSelectedSetupMethod] = useState<SetupMethod | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [pasteSetupLoaded, setPasteSetupLoaded] = useState(false);
   const [timeModal, setTimeModal] = useState<TimeModalState>({ mode: null, value: "00:05:00", error: "" });
   const [sectionModal, setSectionModal] = useState<SectionModalState>({
     mode: null,
@@ -148,6 +185,12 @@ export default function App() {
     name: "",
     duration: "00:05:00",
     error: "",
+  });
+  const [templateSaveModal, setTemplateSaveModal] = useState<TemplateSaveModalState>({
+    open: false,
+    name: "",
+    error: "",
+    saved: false,
   });
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
   const hydrated = useRef(false);
@@ -252,7 +295,7 @@ export default function App() {
   useEffect(() => {
     let cleanup: (() => void) | undefined;
     onMainCloseRequested(() => {
-      const hasActiveService = Boolean(stateRef.current.activeService);
+      const hasActiveService = isUnfinishedActiveService(stateRef.current.activeService);
       if (hasActiveService) {
         setConfirmModal({
           title: "End service before closing",
@@ -271,6 +314,10 @@ export default function App() {
     });
     return () => cleanup?.();
   }, []);
+
+  useEffect(() => {
+    void setMainCloseGuard(isUnfinishedActiveService(state.activeService));
+  }, [state.activeService]);
 
   useEffect(() => {
     if (!state.activeService) return;
@@ -305,14 +352,46 @@ export default function App() {
 
   const navigate = (screen: Screen) => setState((current) => ({ ...current, screen }));
 
-  const startNewService = () => {
+  const openFreshStartSetup = () => {
     setDraft(emptyDraft(state.settings));
+    setSelectedSetupMethod(null);
+    setSelectedTemplateId(null);
+    setPasteSetupLoaded(false);
+    setParsedRows([]);
     navigate("start");
   };
 
+  const startNewService = () => {
+    if (!isUnfinishedActiveService(stateRef.current.activeService)) {
+      openFreshStartSetup();
+      return;
+    }
+
+    setConfirmModal({
+      title: "Service currently ongoing",
+      message: "A service is currently in progress. Resume the ongoing service or end it before starting a new one.",
+      confirmLabel: "Resume service",
+      secondaryLabel: "End service and start new",
+      cancelLabel: "Cancel",
+      tone: "normal",
+      secondaryTone: "danger",
+      onConfirm: () => {
+        setConfirmModal(null);
+        navigate("live");
+      },
+      onSecondary: () => {
+        void endActiveServiceAndStartNew();
+      },
+    });
+  };
+
   const beginBlank = () => {
-    setDraft(emptyDraft(state.settings));
-    navigate("builder");
+    if (selectedSetupMethod !== "blank") {
+      setDraft(emptyDraft(state.settings));
+      setSelectedTemplateId(null);
+      setPasteSetupLoaded(false);
+    }
+    setSelectedSetupMethod("blank");
   };
 
   const beginFromTemplate = (template: Template) => {
@@ -322,23 +401,28 @@ export default function App() {
       sections,
       startingSectionId: sections[0]?.id ?? null,
     });
-    navigate("builder");
+    setSelectedSetupMethod("template");
+    setSelectedTemplateId(template.id);
+    setPasteSetupLoaded(false);
   };
 
   const createFromPaste = () => {
     const rows = parseProgramText(pasteText);
     setParsedRows(rows);
-    navigate("pasteReview");
+    setSelectedSetupMethod("paste");
+    setPasteSetupLoaded(false);
   };
 
   const confirmPasteRows = () => {
     const sections = parsedRows.filter((row) => row.valid).map((row) => createSection(row.name, row.durationSeconds));
-    setDraft({
-      ...emptyDraft(state.settings),
+    setDraft((current) => ({
+      ...current,
       sections,
       startingSectionId: sections[0]?.id ?? null,
-    });
-    navigate("builder");
+    }));
+    setSelectedSetupMethod("paste");
+    setSelectedTemplateId(null);
+    setPasteSetupLoaded(true);
   };
 
   const openOrTestStage = async (testMode = true) => {
@@ -479,10 +563,17 @@ export default function App() {
   const resumeService = () => startSection();
 
   const restartCurrent = () => {
+    const service = stateRef.current.activeService;
+    const section = currentSection(service);
+    const hasStarted = section ? section.actualElapsedSeconds > 0 || Boolean(section.startedAt) : false;
+    if (!hasStarted) {
+      applyRestartCurrent();
+      return;
+    }
     setConfirmModal({
-      title: "Restart current section",
-      message: "Restart this section from its planned duration?",
-      confirmLabel: "Restart",
+      title: "Reset current section",
+      message: "Reset this section from its planned duration?",
+      confirmLabel: "Reset section",
       tone: "danger",
       onConfirm: () => {
         setConfirmModal(null);
@@ -545,6 +636,67 @@ export default function App() {
     updateActive((service) => moveToNextSection(service, false));
   };
 
+  const moveToPrevious = () => {
+    const service = stateRef.current.activeService;
+    if (!service) return;
+    const currentIndex = service.sections.findIndex((section) => section.id === service.currentSectionId);
+    if (currentIndex <= 0) return;
+    const previous = service.sections[currentIndex - 1];
+    if (previous.status === "completed" || previous.status === "skipped" || previous.actualElapsedSeconds > 0 || previous.endedAt) {
+      setConfirmModal({
+        title: "Go back to previous section?",
+        message: "This will reactivate the previous section and may update its timing in the final report.",
+        confirmLabel: "Go back",
+        tone: "danger",
+        onConfirm: () => {
+          setConfirmModal(null);
+          applyMoveToPrevious();
+        },
+      });
+      return;
+    }
+    applyMoveToPrevious();
+  };
+
+  const applyMoveToPrevious = () => {
+    updateActive((service) => {
+      const now = Date.now();
+      const iso = new Date(now).toISOString();
+      const currentIndex = service.sections.findIndex((section) => section.id === service.currentSectionId);
+      if (currentIndex <= 0) return service;
+      const previous = service.sections[currentIndex - 1];
+      const wasRunning = service.status === "running";
+
+      return {
+        ...service,
+        status: wasRunning ? "running" : "paused",
+        currentSectionId: previous.id,
+        updatedAt: iso,
+        sections: service.sections.map((section) => {
+          if (section.id === service.currentSectionId) {
+            return {
+              ...section,
+              status: "pending",
+              actualElapsedSeconds: elapsedForSection(section, now),
+              startedAt: null,
+              endedAt: null,
+            };
+          }
+          if (section.id === previous.id) {
+            return {
+              ...section,
+              status: wasRunning ? "running" : "pending",
+              actualElapsedSeconds: 0,
+              startedAt: wasRunning ? iso : null,
+              endedAt: null,
+            };
+          }
+          return section;
+        }),
+      };
+    });
+  };
+
   const moveToNextSection = (service: ActiveService, endedAtPlannedTime: boolean): ActiveService => {
     const now = Date.now();
     const currentIndex = service.sections.findIndex((section) => section.id === service.currentSectionId);
@@ -582,26 +734,35 @@ export default function App() {
       setTimeModal((current) => ({ ...current, error: "Enter a duration greater than zero in HH:MM:SS." }));
       return;
     }
+    applySectionTimeAdjustment(timeModal.mode === "reduce" ? -seconds : seconds);
+    setTimeModal({ mode: null, value: "00:01:00", error: "" });
+  };
+
+  const applyQuickTimeChange = (seconds: number) => {
+    applySectionTimeAdjustment(seconds);
+  };
+
+  const applySectionTimeAdjustment = (deltaSeconds: number) => {
     updateActive((service) => ({
       ...service,
       updatedAt: new Date().toISOString(),
       sections: service.sections.map((section) => {
         if (section.id !== service.currentSectionId) return section;
-        if (timeModal.mode === "add") {
+        if (deltaSeconds > 0) {
           return {
             ...section,
-            addedSeconds: section.addedSeconds + seconds,
-            adjustedDurationSeconds: section.adjustedDurationSeconds + seconds,
+            addedSeconds: section.addedSeconds + deltaSeconds,
+            adjustedDurationSeconds: section.adjustedDurationSeconds + deltaSeconds,
           };
         }
+        const reducedBy = Math.abs(deltaSeconds);
         return {
           ...section,
-          reducedSeconds: section.reducedSeconds + seconds,
-          adjustedDurationSeconds: Math.max(0, section.adjustedDurationSeconds - seconds),
+          reducedSeconds: section.reducedSeconds + reducedBy,
+          adjustedDurationSeconds: Math.max(0, section.adjustedDurationSeconds - reducedBy),
         };
       }),
     }));
-    setTimeModal({ mode: null, value: "00:05:00", error: "" });
   };
 
   const toggleStageHidden = () => {
@@ -648,6 +809,68 @@ export default function App() {
     if (closeApp) await closeApplication();
   }, []);
 
+  const endActiveServiceAndStartNew = async () => {
+    const current = stateRef.current;
+    const service = current.activeService;
+    if (!isUnfinishedActiveService(service)) {
+      setConfirmModal(null);
+      openFreshStartSetup();
+      return;
+    }
+
+    const snapshot = snapshotRunningService(service);
+    const shouldSaveReport = hasReportableServiceActivity(snapshot);
+    const endedAt = new Date().toISOString();
+    const report = shouldSaveReport
+      ? generateReport({
+          ...snapshot,
+          status: "ended",
+          sections: snapshot.sections.map((section) =>
+            section.status === "running" || section.status === "paused"
+              ? { ...section, status: "completed", endedAt, startedAt: null }
+              : section,
+          ),
+        })
+      : null;
+    const reports = report ? keepLatestReports([report, ...current.reports]) : current.reports;
+    const nextState: AppState = {
+      ...current,
+      activeService: null,
+      reports,
+      screen: "start",
+    };
+
+    try {
+      await publishStagePayload({ mode: "blank", sectionName: "", timerText: "00:00:00", tone: "normal" });
+      await savePersistedData({
+        settings: nextState.settings,
+        templates: nextState.templates,
+        reports: nextState.reports,
+        activeService: null,
+      });
+    } catch {
+      setConfirmModal((modal) =>
+        modal
+          ? {
+              ...modal,
+              error: "Could not save the current service report. Resume the service or try again.",
+            }
+          : modal,
+      );
+      return;
+    }
+
+    stateRef.current = nextState;
+    setState(nextState);
+    setSelectedReport(null);
+    setConfirmModal(null);
+    setDraft(emptyDraft(nextState.settings));
+    setSelectedSetupMethod(null);
+    setSelectedTemplateId(null);
+    setPasteSetupLoaded(false);
+    setParsedRows([]);
+  };
+
   const endService = () => {
     if (!active) return;
     setConfirmModal({
@@ -663,17 +886,33 @@ export default function App() {
   };
 
   const saveDraftAsTemplate = () => {
-    const name = window.prompt("Template name");
-    if (!name?.trim()) return;
+    setTemplateSaveModal({ open: true, name: draft.name.trim(), error: "", saved: false });
+  };
+
+  const confirmSaveDraftAsTemplate = () => {
+    const name = templateSaveModal.name.trim();
+    if (!name) {
+      setTemplateSaveModal((current) => ({ ...current, error: "Template name is required.", saved: false }));
+      return;
+    }
+    if (draft.sections.length === 0) {
+      setTemplateSaveModal((current) => ({ ...current, error: "Add at least one section before saving a template.", saved: false }));
+      return;
+    }
+    if (draft.sections.some((section) => !section.name.trim() || section.adjustedDurationSeconds <= 0)) {
+      setTemplateSaveModal((current) => ({ ...current, error: "Every section needs a name and duration greater than zero.", saved: false }));
+      return;
+    }
     const now = new Date().toISOString();
     const template: Template = {
       id: createId("template"),
-      name: name.trim(),
+      name,
       sections: cloneSectionsForTemplate(draft.sections),
       createdAt: now,
       updatedAt: now,
     };
     setState((current) => ({ ...current, templates: [template, ...current.templates] }));
+    setTemplateSaveModal((current) => ({ ...current, error: "", saved: true }));
   };
 
   const saveTemplate = (template: Template) => {
@@ -737,20 +976,33 @@ export default function App() {
         )}
         {state.screen === "start" && (
           <StartScreen
+            selectedMethod={selectedSetupMethod}
+            templates={state.templates}
+            selectedTemplateId={selectedTemplateId}
+            draft={draft}
+            displays={displays}
+            statusMessage={state.stageDisplayStatus.message}
+            pasteText={pasteText}
+            parsedRows={parsedRows}
+            pasteSetupLoaded={pasteSetupLoaded}
             onBlank={beginBlank}
-            onTemplate={() => navigate("templatePicker")}
-            onPaste={() => navigate("paste")}
+            onTemplate={() => setSelectedSetupMethod("template")}
+            onUseTemplate={beginFromTemplate}
+            onPaste={() => setSelectedSetupMethod("paste")}
+            onPasteTextChange={(value) => {
+              setPasteText(value);
+              setPasteSetupLoaded(false);
+            }}
+            onParsePaste={createFromPaste}
+            onParsedRows={setParsedRows}
+            onConfirmPaste={confirmPasteRows}
+            onDraft={setDraft}
+            onRefreshDisplays={refreshDisplays}
+            onStageSetup={() => navigate("stageSetup")}
+            onSaveTemplate={saveDraftAsTemplate}
+            onStart={createActiveService}
             onBack={() => navigate("home")}
           />
-        )}
-        {state.screen === "templatePicker" && (
-          <TemplatePicker templates={state.templates} onUse={beginFromTemplate} onBack={() => navigate("start")} />
-        )}
-        {state.screen === "paste" && (
-          <PasteScreen value={pasteText} onChange={setPasteText} onParse={createFromPaste} onBack={() => navigate("start")} />
-        )}
-        {state.screen === "pasteReview" && (
-          <PasteReview rows={parsedRows} onRows={setParsedRows} onConfirm={confirmPasteRows} onBack={() => navigate("paste")} />
         )}
         {state.screen === "builder" && (
           <ProgramBuilder
@@ -773,7 +1025,7 @@ export default function App() {
             onDraft={setDraft}
             onRefreshDisplays={refreshDisplays}
             onTest={() => openOrTestStage(true)}
-            onBack={() => navigate("builder")}
+            onBack={() => navigate("start")}
           />
         )}
         {state.screen === "live" && active && (
@@ -789,8 +1041,10 @@ export default function App() {
             onPause={pauseService}
             onResume={resumeService}
             onRestart={restartCurrent}
+            onPreviousSection={moveToPrevious}
             onNextSection={moveToNext}
             onApplyTime={applyTimeChange}
+            onQuickTimeChange={applyQuickTimeChange}
             onToggleStage={toggleStageHidden}
             onReopenStage={() => active.selectedDisplayId && openOrTestLiveStage(active.selectedDisplayId)}
             onChooseDisplay={(displayId) => void moveStageDisplayTo(displayId)}
@@ -818,7 +1072,10 @@ export default function App() {
               setEditingTemplate(template);
               navigate("templateEditor");
             }}
-            onUse={beginFromTemplate}
+            onUse={(template) => {
+              beginFromTemplate(template);
+              navigate("start");
+            }}
             onDelete={deleteTemplate}
             onBack={() => navigate("home")}
           />
@@ -850,13 +1107,63 @@ export default function App() {
         )}
       </main>
       <StagePublisher service={active} />
+      {templateSaveModal.open && (
+        <Modal
+          title={templateSaveModal.saved ? "Template saved" : "Save as template"}
+          onClose={() => setTemplateSaveModal({ open: false, name: "", error: "", saved: false })}
+        >
+          {templateSaveModal.saved ? (
+            <>
+              <p className="muted">Template saved successfully.</p>
+              <div className="button-row end">
+                <button className="primary large" onClick={() => setTemplateSaveModal({ open: false, name: "", error: "", saved: false })}>
+                  Done
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="muted">Save this program as a reusable service template.</p>
+              <label>
+                Template name
+                <input
+                  autoFocus
+                  value={templateSaveModal.name}
+                  onChange={(event) => setTemplateSaveModal((current) => ({ ...current, name: event.target.value, error: "" }))}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") confirmSaveDraftAsTemplate();
+                  }}
+                />
+              </label>
+              {templateSaveModal.error && <p className="error-text">{templateSaveModal.error}</p>}
+              <div className="button-row end">
+                <button className="ghost large" onClick={() => setTemplateSaveModal({ open: false, name: "", error: "", saved: false })}>
+                  Cancel
+                </button>
+                <button className="primary large" onClick={confirmSaveDraftAsTemplate}>
+                  Save template
+                </button>
+              </div>
+            </>
+          )}
+        </Modal>
+      )}
       {confirmModal && (
         <Modal title={confirmModal.title} onClose={() => setConfirmModal(null)}>
           <p className="muted">{confirmModal.message}</p>
+          {confirmModal.error && <p className="error-text">{confirmModal.error}</p>}
           <div className="button-row end">
             <button className="ghost large" onClick={() => setConfirmModal(null)}>
               {confirmModal.cancelLabel ?? "Cancel"}
             </button>
+            {confirmModal.secondaryLabel && confirmModal.onSecondary && (
+              <button
+                className={`${confirmModal.secondaryTone === "danger" ? "danger" : "ghost"} large`}
+                onClick={confirmModal.onSecondary}
+              >
+                {confirmModal.secondaryLabel}
+              </button>
+            )}
             <button className={`${confirmModal.tone === "danger" ? "danger" : "primary"} large`} onClick={confirmModal.onConfirm}>
               {confirmModal.confirmLabel}
             </button>
@@ -949,50 +1256,169 @@ function HomeScreen({
 }
 
 function StartScreen({
+  selectedMethod,
+  templates,
+  selectedTemplateId,
+  draft,
+  displays,
+  statusMessage,
+  pasteText,
+  parsedRows,
+  pasteSetupLoaded,
   onBlank,
   onTemplate,
+  onUseTemplate,
   onPaste,
+  onPasteTextChange,
+  onParsePaste,
+  onParsedRows,
+  onConfirmPaste,
+  onDraft,
+  onRefreshDisplays,
+  onStageSetup,
+  onSaveTemplate,
+  onStart,
   onBack,
 }: {
+  selectedMethod: SetupMethod | null;
+  templates: Template[];
+  selectedTemplateId: string | null;
+  draft: DraftService;
+  displays: DisplayInfo[];
+  statusMessage: string;
+  pasteText: string;
+  parsedRows: ParsedProgramRow[];
+  pasteSetupLoaded: boolean;
   onBlank: () => void;
   onTemplate: () => void;
+  onUseTemplate: (template: Template) => void;
   onPaste: () => void;
+  onPasteTextChange: (value: string) => void;
+  onParsePaste: () => void;
+  onParsedRows: (rows: ParsedProgramRow[]) => void;
+  onConfirmPaste: () => void;
+  onDraft: (draft: DraftService | ((draft: DraftService) => DraftService)) => void;
+  onRefreshDisplays: () => void;
+  onStageSetup: () => void;
+  onSaveTemplate: () => void;
+  onStart: () => void;
   onBack: () => void;
 }) {
+  const selectedTemplate = selectedTemplateId ? templates.find((template) => template.id === selectedTemplateId) : null;
+
   return (
     <section className="stack">
       <BackButton onClick={onBack} />
       <h1>Start New Service</h1>
       <div className="choice-grid">
-        <button className="choice" onClick={onBlank}>
+        <button className={`choice ${selectedMethod === "blank" ? "active" : "secondary"}`} onClick={onBlank} aria-pressed={selectedMethod === "blank"}>
           <Plus /> Start with blank program time sheet
         </button>
-        <button className="choice" onClick={onTemplate}>
+        <button className={`choice ${selectedMethod === "template" ? "active" : "secondary"}`} onClick={onTemplate} aria-pressed={selectedMethod === "template"}>
           <Copy /> Start from saved template
         </button>
-        <button className="choice" onClick={onPaste}>
+        <button className="choice secondary" disabled aria-disabled="true" onClick={onPaste}>
           <FileText /> Paste program text
+          <span className="coming-soon-pill">Coming soon</span>
         </button>
       </div>
+      {selectedMethod && (
+        <div className="selected-setup-panel">
+          {selectedMethod === "blank" && (
+            <ProgramBuilder
+              draft={draft}
+              displays={displays}
+              statusMessage={statusMessage}
+              onDraft={onDraft}
+              onRefreshDisplays={onRefreshDisplays}
+              onStageSetup={onStageSetup}
+              onSaveTemplate={onSaveTemplate}
+              onStart={onStart}
+              showBack={false}
+            />
+          )}
+          {selectedMethod === "template" && (
+            <div className="stack">
+              <TemplatePicker
+                templates={templates}
+                selectedTemplateId={selectedTemplateId}
+                onUse={onUseTemplate}
+              />
+              {selectedTemplate && <p className="selected-source">Selected template: {selectedTemplate.name}</p>}
+              {selectedTemplate && (
+                <ProgramBuilder
+                  draft={draft}
+                  displays={displays}
+                  statusMessage={statusMessage}
+                  onDraft={onDraft}
+                  onRefreshDisplays={onRefreshDisplays}
+                  onStageSetup={onStageSetup}
+                  onSaveTemplate={onSaveTemplate}
+                  onStart={onStart}
+                  showBack={false}
+                />
+              )}
+            </div>
+          )}
+          {selectedMethod === "paste" && (
+            <div className="stack">
+              {!pasteSetupLoaded && (
+                <>
+                  <PasteScreen value={pasteText} onChange={onPasteTextChange} onParse={onParsePaste} />
+                  {parsedRows.length > 0 && (
+                    <PasteReview rows={parsedRows} onRows={onParsedRows} onConfirm={onConfirmPaste} />
+                  )}
+                </>
+              )}
+              {pasteSetupLoaded && (
+                <>
+                  <p className="selected-source">Pasted program loaded. Review the service setup below.</p>
+                  <ProgramBuilder
+                    draft={draft}
+                    displays={displays}
+                    statusMessage={statusMessage}
+                    onDraft={onDraft}
+                    onRefreshDisplays={onRefreshDisplays}
+                    onStageSetup={onStageSetup}
+                    onSaveTemplate={onSaveTemplate}
+                    onStart={onStart}
+                    showBack={false}
+                  />
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
 
-function TemplatePicker({ templates, onUse, onBack }: { templates: Template[]; onUse: (t: Template) => void; onBack: () => void }) {
+function TemplatePicker({
+  templates,
+  selectedTemplateId,
+  onUse,
+  onBack,
+}: {
+  templates: Template[];
+  selectedTemplateId?: string | null;
+  onUse: (t: Template) => void;
+  onBack?: () => void;
+}) {
   return (
     <section className="stack">
-      <BackButton onClick={onBack} />
+      {onBack && <BackButton onClick={onBack} />}
       <h1>Choose Template</h1>
       {templates.length === 0 ? <EmptyState text="No templates saved yet." /> : null}
       <div className="list">
         {templates.map((template) => (
-          <div className="row" key={template.id}>
+          <div className={`row ${selectedTemplateId === template.id ? "selected-row" : ""}`} key={template.id}>
             <div>
               <strong>{template.name}</strong>
-              <p>{template.sections.length} sections</p>
+              <p>{template.sections.length} sections{selectedTemplateId === template.id ? " - selected" : ""}</p>
             </div>
             <button className="primary" onClick={() => onUse(template)}>
-              Use Template
+              {selectedTemplateId === template.id ? "Selected" : "Use Template"}
             </button>
           </div>
         ))}
@@ -1010,11 +1436,11 @@ function PasteScreen({
   value: string;
   onChange: (value: string) => void;
   onParse: () => void;
-  onBack: () => void;
+  onBack?: () => void;
 }) {
   return (
     <section className="stack">
-      <BackButton onClick={onBack} />
+      {onBack && <BackButton onClick={onBack} />}
       <h1>Paste Program Text</h1>
       <textarea
         className="paste-box"
@@ -1038,25 +1464,48 @@ function PasteReview({
   rows: ParsedProgramRow[];
   onRows: (rows: ParsedProgramRow[]) => void;
   onConfirm: () => void;
-  onBack: () => void;
+  onBack?: () => void;
 }) {
   const validCount = rows.filter((row) => row.valid).length;
+  const updateRow = (index: number, next: Partial<ParsedProgramRow>) => {
+    onRows(
+      rows.map((row, rowIndex) => {
+        if (rowIndex !== index) return row;
+        const merged = { ...row, ...next };
+        const valid = Boolean(merged.name.trim()) && merged.durationSeconds > 0;
+        return {
+          ...merged,
+          valid,
+          error: valid ? undefined : "Section name and duration are required.",
+        };
+      }),
+    );
+  };
   return (
     <section className="stack">
-      <BackButton onClick={onBack} />
+      {onBack && <BackButton onClick={onBack} />}
       <h1>Review Pasted Program</h1>
       <div className="list">
         {rows.map((row, index) => (
-          <div className={`row ${row.valid ? "" : "invalid"}`} key={row.id}>
-            <div>
-              <strong>{row.valid ? row.name : row.raw}</strong>
-              <p>{row.valid ? formatDuration(row.durationSeconds) : row.error}</p>
+          <div className={`paste-review-row ${row.valid ? "" : "invalid"}`} key={row.id}>
+            <div className="form-grid">
+              <label>
+                Section name
+                <input value={row.name} placeholder={row.raw || "Section name"} onChange={(event) => updateRow(index, { name: event.target.value })} />
+              </label>
+              <label>
+                Duration
+                <DurationInput
+                  valueSeconds={row.durationSeconds}
+                  ariaLabel={`${row.name || "Pasted row"} duration`}
+                  onChange={(seconds) => updateRow(index, { durationSeconds: seconds })}
+                />
+              </label>
             </div>
-            {!row.valid && (
-              <button className="ghost danger-text" onClick={() => onRows(rows.filter((_, rowIndex) => rowIndex !== index))}>
-                Remove
-              </button>
-            )}
+            {!row.valid && <p className="error-text">{row.error}</p>}
+            <button className="ghost danger-text" onClick={() => onRows(rows.filter((_, rowIndex) => rowIndex !== index))}>
+              Remove
+            </button>
           </div>
         ))}
       </div>
@@ -1077,6 +1526,7 @@ function ProgramBuilder({
   onSaveTemplate,
   onStart,
   onBack,
+  showBack = true,
 }: {
   draft: DraftService;
   displays: DisplayInfo[];
@@ -1086,7 +1536,8 @@ function ProgramBuilder({
   onStageSetup: () => void;
   onSaveTemplate: () => void;
   onStart: () => void;
-  onBack: () => void;
+  onBack?: () => void;
+  showBack?: boolean;
 }) {
   const isValidationMessage =
     statusMessage.startsWith("Service name") ||
@@ -1095,11 +1546,18 @@ function ProgramBuilder({
     statusMessage.startsWith("Every section") ||
     statusMessage.startsWith("No display");
   const displayStatusMessage = isValidationMessage ? statusMessage : stageSetupMessage(displays, draft.selectedDisplayId);
+  const warningSeconds = parseDuration(draft.warningInput);
+  const canStart =
+    Boolean(draft.name.trim()) &&
+    warningSeconds !== null &&
+    warningSeconds >= 0 &&
+    draft.sections.length > 0 &&
+    draft.sections.every((section) => section.name.trim() && section.adjustedDurationSeconds > 0);
 
   return (
     <section className="builder-layout">
       <div className="stack">
-        <BackButton onClick={onBack} />
+        {showBack && onBack && <BackButton onClick={onBack} />}
         <h1>Service Setup</h1>
         <div className="form-grid">
           <label>
@@ -1153,7 +1611,7 @@ function ProgramBuilder({
         <button className="ghost icon-label" onClick={onSaveTemplate}>
           <Save size={18} /> Save as template
         </button>
-        <button className="primary large" onClick={onStart}>
+        <button className="primary large" onClick={onStart} disabled={!canStart}>
           Start Live Control
         </button>
         {displayStatusMessage && <p className="action-warning">{displayStatusMessage}</p>}
@@ -1213,8 +1671,10 @@ function LiveControlPanel({
   onPause,
   onResume,
   onRestart,
+  onPreviousSection,
   onNextSection,
   onApplyTime,
+  onQuickTimeChange,
   onToggleStage,
   onReopenStage,
   onChooseDisplay,
@@ -1234,8 +1694,10 @@ function LiveControlPanel({
   onPause: () => void;
   onResume: () => void;
   onRestart: () => void;
+  onPreviousSection: () => void;
   onNextSection: () => void;
   onApplyTime: () => void;
+  onQuickTimeChange: (seconds: number) => void;
   onToggleStage: () => void;
   onReopenStage: () => void;
   onChooseDisplay: (displayId: string) => void;
@@ -1246,9 +1708,9 @@ function LiveControlPanel({
 }) {
   const [now, setNow] = useState(Date.now());
   const section = currentSection(service);
-  const next = nextSection(service);
   const remaining = section ? remainingForSection(section, now) : 0;
   const tone = section ? timerTone(remaining, service.warningThresholdSeconds) : "normal";
+  const currentIndex = service.sections.findIndex((item) => item.id === service.currentSectionId);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 250);
@@ -1269,18 +1731,15 @@ function LiveControlPanel({
         service.status === "running" ? onPause() : onResume();
       }
       if (event.key === "ArrowRight") onNextSection();
+      if (event.key === "ArrowLeft") onPreviousSection();
       if (event.key.toLowerCase() === "r") onRestart();
-      if (event.key === "+" || event.key === "=") onTimeModal({ mode: "add", value: "00:05:00", error: "" });
-      if (event.key === "-" || event.key === "_") onTimeModal({ mode: "reduce", value: "00:05:00", error: "" });
+      if (event.key === "+" || event.key === "=") onQuickTimeChange(60);
+      if (event.key === "-" || event.key === "_") onQuickTimeChange(-60);
       if (event.key.toLowerCase() === "h") onToggleStage();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onNextSection, onPause, onRestart, onResume, onTimeModal, onToggleStage, service.status]);
-
-  const upcoming = section
-    ? service.sections.slice(service.sections.findIndex((item) => item.id === section.id) + 1)
-    : service.sections;
+  }, [onNextSection, onPause, onPreviousSection, onQuickTimeChange, onRestart, onResume, onToggleStage, service.status]);
 
   const saveSectionModal = () => {
     const seconds = parseDuration(sectionModal.duration);
@@ -1309,48 +1768,13 @@ function LiveControlPanel({
 
   return (
     <section className="live-grid">
-      <div className="live-main">
-        <div className="current-panel">
-          <p className="eyebrow">Current section</p>
-          <h1>{section?.name ?? "No section selected"}</h1>
-          <div className={`control-timer ${tone}`}>{section ? formatTimer(remaining) : "00:00:00"}</div>
-          <p className="muted">
-            {service.status === "running" ? "Running" : service.status === "setup" ? "Ready to start" : "Paused"}
-          </p>
-        </div>
-        <div className="controls-grid">
-          {service.status === "running" ? (
-            <button className="primary large" onClick={onPause}>
-              <Pause /> Pause
-            </button>
-          ) : section?.status === "pending" || service.status === "setup" ? (
-            <button className="primary large" onClick={onStart}>
-              <Play /> Start section
-            </button>
-          ) : (
-            <button className="primary large" onClick={onResume}>
-              <Play /> Resume
-            </button>
-          )}
-          <button className="ghost large" onClick={onRestart}>
-            <RotateCcw /> Restart
-          </button>
-          <button className="ghost large" onClick={onNextSection} aria-label="Next section">
-            <StepForward /> Next section
-          </button>
-          <button className="ghost large" onClick={() => onTimeModal({ mode: "add", value: "00:05:00", error: "" })}>
-            <Plus /> Add time
-          </button>
-          <button className="ghost large" onClick={() => onTimeModal({ mode: "reduce", value: "00:05:00", error: "" })}>
-            <Square /> Reduce time
-          </button>
-          <button className="ghost large" onClick={onToggleStage}>
-            <Monitor /> {service.stageDisplayHidden ? "Show stage" : "Hide stage"}
-          </button>
-        </div>
-        <div className="upcoming-panel">
+      <div className="program-column live-scroll-col">
+        <div className="upcoming-panel program-panel">
           <div className="section-heading">
-            <h2>Upcoming</h2>
+            <div>
+              <p className="eyebrow">Live program</p>
+              <h2>Program sections</h2>
+            </div>
             <button
               className="ghost icon-label"
               onClick={() => onSectionModal({ mode: "add", targetId: null, name: "", duration: "00:05:00", error: "" })}
@@ -1358,10 +1782,8 @@ function LiveControlPanel({
               <Plus size={18} /> Add
             </button>
           </div>
-          {next && <p className="next-line">Next: {next.name}</p>}
-          <UpcomingList
+          <ProgramSectionsList
             service={service}
-            sections={upcoming}
             onEdit={(item) =>
               onSectionModal({
                 mode: "edit",
@@ -1375,8 +1797,57 @@ function LiveControlPanel({
           />
         </div>
       </div>
-      <aside className="live-side">
+      <aside className="live-side live-sticky-col">
         <MiniPreview service={service} now={now} />
+        <div className="control-board">
+          <div className="control-board-heading">
+            <div>
+              <p className="eyebrow">Current section</p>
+              <h2>{section?.name ?? "No section selected"}</h2>
+            </div>
+            <span className={`status-pill ${tone}`}>
+              {service.status === "running" ? "Running" : service.status === "setup" ? "Ready" : "Paused"}
+            </span>
+          </div>
+          <div className="live-controls-wrap">
+            <div className="live-transport-row">
+              <button className="ghost ctrl-icon" onClick={() => onQuickTimeChange(-60)} aria-label="Subtract 1 minute">
+                <span className="ctrl-badge">−1</span>
+              </button>
+              <button className="ghost ctrl-icon" onClick={onPreviousSection} disabled={currentIndex <= 0} aria-label="Previous section">
+                <StepBack size={20} />
+              </button>
+              {service.status === "running" ? (
+                <button className="ghost ctrl-icon ctrl-play" onClick={onPause} aria-label="Pause">
+                  <Pause size={22} />
+                </button>
+              ) : section?.status === "pending" || service.status === "setup" ? (
+                <button className="primary ctrl-icon ctrl-play" onClick={onStart} aria-label="Start">
+                  <Play size={22} />
+                </button>
+              ) : (
+                <button className="primary ctrl-icon ctrl-play" onClick={onResume} aria-label="Resume">
+                  <Play size={22} />
+                </button>
+              )}
+              <button className="ghost ctrl-icon" onClick={onNextSection} aria-label="Next section">
+                <StepForward size={20} />
+              </button>
+              <button className="ghost ctrl-icon" onClick={() => onQuickTimeChange(60)} aria-label="Add 1 minute">
+                <span className="ctrl-badge">+1</span>
+              </button>
+            </div>
+            <div className="live-action-row">
+              <button className="ghost icon-label live-action-btn" onClick={onRestart}>
+                <RotateCcw size={16} /> Reset
+              </button>
+              <button className="ghost icon-label live-action-btn" onClick={onToggleStage}>
+                {service.stageDisplayHidden ? <Eye size={16} /> : <EyeOff size={16} />}
+                {service.stageDisplayHidden ? "Show display" : "Hide display"}
+              </button>
+            </div>
+          </div>
+        </div>
         <div className="side-panel inline">
           <h2>Stage Status</h2>
           <p className="status-line">{status.message}</p>
@@ -1393,12 +1864,32 @@ function LiveControlPanel({
         </button>
       </aside>
       {timeModal.mode && (
-        <Modal title={timeModal.mode === "add" ? "Add Time" : "Reduce Time"} onClose={() => onTimeModal({ ...timeModal, mode: null })}>
-          <input value={timeModal.value} onChange={(event) => onTimeModal({ ...timeModal, value: event.target.value, error: "" })} />
+        <Modal title="Adjust time" onClose={() => onTimeModal({ ...timeModal, mode: null })}>
+          <label>
+            Select action
+            <select value={timeModal.mode} onChange={(event) => onTimeModal({ ...timeModal, mode: event.target.value as "add" | "reduce", error: "" })}>
+              <option value="add">Increase time</option>
+              <option value="reduce">Decrease time</option>
+            </select>
+          </label>
+          <label>
+            Duration
+            <input
+              value={timeModal.value}
+              placeholder="00:01:00"
+              onChange={(event) => onTimeModal({ ...timeModal, value: event.target.value, error: "" })}
+            />
+          </label>
+          <p className="muted">This affects the current section only.</p>
           {timeModal.error && <p className="error-text">{timeModal.error}</p>}
-          <button className="primary large" onClick={onApplyTime}>
-            Apply
-          </button>
+          <div className="button-row end">
+            <button className="ghost large" onClick={() => onTimeModal({ ...timeModal, mode: null })}>
+              Cancel
+            </button>
+            <button className="primary large" onClick={onApplyTime}>
+              Apply adjustment
+            </button>
+          </div>
         </Modal>
       )}
       {sectionModal.mode && (
@@ -1425,14 +1916,12 @@ function LiveControlPanel({
   );
 }
 
-function UpcomingList({
+function ProgramSectionsList({
   service,
-  sections,
   onEdit,
   updateActive,
 }: {
   service: ActiveService;
-  sections: Section[];
   onEdit: (section: Section) => void;
   updateActive: (updater: (service: ActiveService) => ActiveService | null) => void;
 }) {
@@ -1448,17 +1937,38 @@ function UpcomingList({
     });
   };
   const remove = (sectionId: string) => {
-    updateActive((current) => ({ ...current, sections: current.sections.filter((section) => section.id !== sectionId) }));
+    updateActive((current) => {
+      const section = current.sections.find((item) => item.id === sectionId);
+      if (!section || section.status === "completed" || section.status === "skipped" || section.id === current.currentSectionId) return current;
+      return { ...current, sections: current.sections.filter((item) => item.id !== sectionId) };
+    });
+  };
+  const duplicate = (section: Section) => {
+    updateActive((current) => ({
+      ...current,
+      sections: [...current.sections, createSection(section.name, section.adjustedDurationSeconds)],
+    }));
   };
   return (
-    <div className="list compact">
-      {sections.map((section) => (
-        <div className="row" key={section.id}>
-          <div>
-            <strong>{section.name}</strong>
+    <div className="list compact program-list">
+      {service.sections.map((section, index) => {
+        const isActive = section.id === service.currentSectionId;
+        const isCompleted = section.status === "completed" || section.status === "skipped";
+        const isUpcoming = index > currentIndex && section.status === "pending";
+        const stateLabel = isActive ? "Active" : isCompleted ? "Completed" : "Upcoming";
+        return (
+        <div className={`row program-row ${isActive ? "active" : ""} ${isCompleted ? "completed" : ""}`} key={section.id}>
+          <div className="program-row-num">{index + 1}</div>
+          <div className="program-row-body">
+            <div className="program-title-line">
+              <strong>{section.name}</strong>
+              <span className="section-state">{stateLabel}</span>
+            </div>
             <p>{formatDuration(section.adjustedDurationSeconds)}</p>
           </div>
           <div className="row-actions">
+            {isUpcoming && (
+              <>
             <button className="icon-button" onClick={() => move(section.id, -1)} aria-label="Move up">
               <ArrowUp size={16} />
             </button>
@@ -1468,12 +1978,20 @@ function UpcomingList({
             <button className="ghost small" onClick={() => onEdit(section)}>
               Edit
             </button>
+              </>
+            )}
+            <button className="icon-button" onClick={() => duplicate(section)} aria-label="Duplicate section">
+              <Copy size={16} />
+            </button>
+            {isUpcoming && (
             <button className="icon-button danger-text" onClick={() => remove(section.id)} aria-label="Delete section">
               <Trash2 size={16} />
             </button>
+            )}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -1482,16 +2000,20 @@ function MiniPreview({ service, now }: { service: ActiveService; now: number }) 
   const payload = stagePayloadFromService(service, now);
   return (
     <div className="mini-preview">
-      <p>Stage preview</p>
+      <p className="mini-preview-label">Stage preview</p>
       <div className="mini-stage">
-        {payload.mode === "hidden" ? (
-          <span>Stage output hidden</span>
-        ) : (
-          <>
-            <strong>{payload.sectionName}</strong>
-            <b className={payload.tone}>{payload.timerText}</b>
-          </>
-        )}
+        <div className="mini-stage-inner">
+          {payload.mode === "hidden" ? (
+            <span className="mini-stage-hidden">Stage output hidden</span>
+          ) : payload.mode === "test" ? (
+            <span className="mini-stage-test">Timer display connected</span>
+          ) : (
+            <>
+              <div className="mini-stage-name">{payload.sectionName}</div>
+              <div className={`mini-stage-timer ${payload.tone}`}>{payload.timerText}</div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
