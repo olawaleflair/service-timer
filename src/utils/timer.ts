@@ -1,6 +1,29 @@
 import type { ActiveService, Section, StagePayload } from "../types";
 import { formatTimer } from "./time";
 
+export function applySectionTimeAdjustment(
+  section: Section,
+  mode: "add" | "reduce",
+  seconds: number,
+): Section {
+  if (seconds <= 0) return section;
+
+  if (mode === "add") {
+    return {
+      ...section,
+      addedSeconds: section.addedSeconds + seconds,
+      adjustedDurationSeconds: section.adjustedDurationSeconds + seconds,
+    };
+  }
+
+  const reduction = Math.min(seconds, section.adjustedDurationSeconds);
+  return {
+    ...section,
+    reducedSeconds: section.reducedSeconds + reduction,
+    adjustedDurationSeconds: section.adjustedDurationSeconds - reduction,
+  };
+}
+
 export function elapsedForSection(section: Section, now = Date.now()): number {
   if (section.status !== "running" || !section.startedAt) {
     return section.actualElapsedSeconds;

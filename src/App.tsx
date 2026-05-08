@@ -53,6 +53,7 @@ import { cloneSectionsForTemplate, createSection, sectionsFromTemplate } from ".
 import { generateReport, keepLatestReports } from "./utils/reports";
 import { formatDuration, formatTimer, localDateString, parseDuration, secondsToInput } from "./utils/time";
 import {
+  applySectionTimeAdjustment as adjustSectionTime,
   currentSection,
   elapsedForSection,
   nextSection,
@@ -729,38 +730,28 @@ export default function App() {
   };
 
   const applyTimeChange = () => {
+    if (!timeModal.mode) return;
+    const mode = timeModal.mode;
     const seconds = parseDuration(timeModal.value);
     if (seconds === null || seconds <= 0) {
       setTimeModal((current) => ({ ...current, error: "Enter a duration greater than zero in HH:MM:SS." }));
       return;
     }
-    applySectionTimeAdjustment(timeModal.mode === "reduce" ? -seconds : seconds);
+    updateCurrentSectionTime(mode, seconds);
     setTimeModal({ mode: null, value: "00:01:00", error: "" });
   };
 
   const applyQuickTimeChange = (seconds: number) => {
-    applySectionTimeAdjustment(seconds);
+    updateCurrentSectionTime(seconds < 0 ? "reduce" : "add", Math.abs(seconds));
   };
 
-  const applySectionTimeAdjustment = (deltaSeconds: number) => {
+  const updateCurrentSectionTime = (mode: "add" | "reduce", seconds: number) => {
     updateActive((service) => ({
       ...service,
       updatedAt: new Date().toISOString(),
       sections: service.sections.map((section) => {
         if (section.id !== service.currentSectionId) return section;
-        if (deltaSeconds > 0) {
-          return {
-            ...section,
-            addedSeconds: section.addedSeconds + deltaSeconds,
-            adjustedDurationSeconds: section.adjustedDurationSeconds + deltaSeconds,
-          };
-        }
-        const reducedBy = Math.abs(deltaSeconds);
-        return {
-          ...section,
-          reducedSeconds: section.reducedSeconds + reducedBy,
-          adjustedDurationSeconds: Math.max(0, section.adjustedDurationSeconds - reducedBy),
-        };
+        return adjustSectionTime(section, mode, seconds);
       }),
     }));
   };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Section } from "../../types";
-import { elapsedForSection, remainingForSection, timerTone } from "../timer";
+import { applySectionTimeAdjustment, elapsedForSection, remainingForSection, timerTone } from "../timer";
 
 const baseSection: Section = {
   id: "s1",
@@ -30,5 +30,21 @@ describe("timer engine", () => {
     expect(timerTone(120, 60)).toBe("normal");
     expect(timerTone(60, 60)).toBe("warning");
     expect(timerTone(-1, 60)).toBe("overtime");
+  });
+
+  it("adds time to the adjusted duration and records the addition", () => {
+    expect(applySectionTimeAdjustment(baseSection, "add", 300)).toMatchObject({
+      adjustedDurationSeconds: 900,
+      addedSeconds: 300,
+      reducedSeconds: 0,
+    });
+  });
+
+  it("caps reduced time at the section adjusted duration", () => {
+    expect(applySectionTimeAdjustment(baseSection, "reduce", 900)).toMatchObject({
+      adjustedDurationSeconds: 0,
+      addedSeconds: 0,
+      reducedSeconds: 600,
+    });
   });
 });
