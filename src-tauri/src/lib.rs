@@ -166,6 +166,14 @@ fn open_stage_display(app: AppHandle, display_id: String, test_mode: bool) -> Re
 }
 
 #[tauri::command]
+fn close_stage_display(app: AppHandle) -> Result<(), String> {
+    if let Some(stage) = app.get_webview_window("stage") {
+        stage.close().map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn set_stage_payload(app: AppHandle, payload: StagePayload) -> Result<(), String> {
     let state = app.state::<StageState>();
     *state.0.lock().map_err(|_| "Stage state lock failed.")? = Some(payload.clone());
@@ -293,6 +301,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_displays,
             open_stage_display,
+            close_stage_display,
             set_stage_payload,
             get_stage_payload,
             check_for_update,

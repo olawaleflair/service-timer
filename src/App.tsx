@@ -37,6 +37,7 @@ import type {
 } from "./types";
 import {
   checkForUpdate,
+  closeStageDisplay,
   closeApplication,
   listDisplays,
   onMainCloseRequested,
@@ -541,6 +542,14 @@ export default function App() {
     setState((current) => ({ ...current, stageDisplayStatus: { ...current.stageDisplayStatus, message } }));
   };
 
+  const closeStageDisplaySafely = async () => {
+    try {
+      await closeStageDisplay();
+    } catch (error) {
+      console.error("Stage display close failed.", error);
+    }
+  };
+
   const updateActive = (updater: (service: ActiveService) => ActiveService | null) => {
     setState((current) => {
       if (!current.activeService) return current;
@@ -832,6 +841,7 @@ export default function App() {
     stateRef.current = nextState;
     setState(nextState);
     setSelectedReport(report);
+    if (!closeApp) await closeStageDisplaySafely();
     await publishStagePayload({ mode: "blank", sectionName: "", timerText: "00:00:00", tone: "normal" });
     await savePersistedData({
       settings: nextState.settings,
@@ -874,6 +884,7 @@ export default function App() {
     };
 
     try {
+      await closeStageDisplaySafely();
       await publishStagePayload({ mode: "blank", sectionName: "", timerText: "00:00:00", tone: "normal" });
       await savePersistedData({
         settings: nextState.settings,

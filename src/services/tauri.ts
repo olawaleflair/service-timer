@@ -39,6 +39,11 @@ export async function openStageDisplay(displayId: string, testMode = false): Pro
   await safeInvoke("open_stage_display", { displayId, testMode }, undefined);
 }
 
+export async function closeStageDisplay(): Promise<void> {
+  if (!isTauriRuntime()) return;
+  await safeInvoke("close_stage_display", undefined, undefined);
+}
+
 export async function closeApplication(): Promise<void> {
   await safeInvoke("close_application", undefined, undefined);
 }
