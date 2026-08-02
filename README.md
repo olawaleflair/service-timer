@@ -2,7 +2,7 @@
 
 Church Timer Pro is the public name for the project currently branded **Service Timer** in the application and repository. It is an offline-first desktop timer for church media teams that need a calm, readable way to prepare and run a service program.
 
-> **Release status:** This repository is being prepared for its first public open-source release. The current application/configuration version is `1.0.3`, but this should not be read as a published stable installer. The production workflow creates draft GitHub releases from strictly matched version tags for maintainer review; installers remain test-only until signing/notarization is configured and the release is manually published.
+> **Release status:** This repository is being prepared for its first public open-source release. The current application/configuration version is `1.0.4`, but this should not be read as a published stable installer. Every successful push to GitHub `main` now creates clearly labelled, unsigned production-candidate Actions artifacts using Tauri’s explicit `--no-sign` policy for maintainer testing. Strictly matched version tags still create draft GitHub releases with the same temporary unsigned policy; installers remain test-only until signing/notarization is configured and the release is manually published.
 
 [Repository](https://github.com/olawaleflair/service-timer) · [Releases](https://github.com/olawaleflair/service-timer/releases) · [Changelog](CHANGELOG.md) · [Security policy](SECURITY.md)
 
@@ -48,8 +48,12 @@ The project context describes Windows as the primary orientation. Linux packagin
 - Local `main` is the working branch. Push it only to the GitHub `staging` branch with `git push origin main:staging`; do not push local `main` to `origin/main`.
 - GitHub `main` is the production branch. Promote changes only with a pull request from the repository’s `staging` branch to `main`.
 - Pushes and pull requests involving `staging` run quality checks and create short-lived, clearly labelled test artifacts for macOS and Windows.
-- Production quality checks run on `main`. A version tag must point to a commit reachable from `main` and match the versions in `package.json`, `package-lock.json`, and `src-tauri/tauri.conf.json`.
-- Version-tag builds remain draft releases until maintainers configure and verify signing/notarization, then manually publish the release.
+- Production quality checks run on `main`. Successful pushes to `main` also create unsigned, 14-day production-candidate Actions artifacts using Tauri `--no-sign`, named with the application version and commit SHA; the self-contained artifacts include checksum manifests whose paths are relative to the downloaded artifact root. These artifacts are for maintainer testing and do not create a GitHub Release or updater feed.
+- A version tag must point to a commit reachable from `main` and match the versions in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`.
+- Version-tag builds remain draft releases and use `--no-sign` until maintainers configure and verify signing/notarization; that flag must be deliberately removed or conditioned before signed publishing.
+- The current production line starts at `1.0.4`; maintenance releases continue as patch versions such as `1.0.5`. The future major redesign is reserved for `2.0.0` when the new UI is ready.
+
+See [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) for the maintainer release steps.
 
 ### First service
 
