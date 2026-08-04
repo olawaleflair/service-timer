@@ -12,12 +12,12 @@ This checklist applies to Church Timer Pro, currently branded Service Timer. Git
 
 ## Versioned draft release
 
-- [ ] Choose a patch version on the current `1.0.4` production line, such as `1.0.5`; reserve `2.0.0` for the future major redesign when the new UI is ready.
+- [ ] Choose the version that matches the change scope. `2.0.0` is the major New UI release; follow-up maintenance releases use `2.0.x` patch versions.
 - [ ] Update `package.json`, both package-lock version fields, `src-tauri/Cargo.toml`, the `service-timer` entry in `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`.
 - [ ] Update `CHANGELOG.md` and relevant public release documentation.
 - [ ] Run `npm test`, `npm run build`, and `cd src-tauri && cargo check`.
 - [ ] Promote the change through GitHub `staging` and merge it into GitHub `main`.
-- [ ] Only after the version change is on GitHub `main`, create the exact matching tag (first release: `v1.0.4`).
+- [ ] Only after the version change is on GitHub `main`, create the exact matching tag (`v2.0.0` for this release).
 - [ ] Confirm CI verifies tag reachability, strict tag syntax, and every version source before building the draft release.
 - [ ] Confirm the draft tag workflow still uses Tauri `--no-sign`; remove or condition that flag only as part of a reviewed signing change.
 - [ ] Test the draft macOS and Windows installers and review the generated release notes/assets.

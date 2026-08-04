@@ -2980,7 +2980,7 @@ dependencies = [
 
 [[package]]
 name = "service-timer"
-version = "1.0.4"
+version = "2.0.0"
 dependencies = [
  "serde",
  "serde_json",

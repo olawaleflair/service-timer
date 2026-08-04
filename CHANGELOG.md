@@ -6,20 +6,27 @@ This changelog begins with the initial public documentation work. Earlier reposi
 
 ## [Unreleased]
 
+No changes yet.
+
+## [2.0.0] — 2026-08-04
+
 ### Added
 
-- MIT license with copyright holder `Olawale Omotoso`.
-- Initial public README with download status, current capabilities, local development setup, and known limitations.
-- Initial contribution, security, and changelog guidance.
+- A redesigned home dashboard with clearer access to new services, templates, reports, settings, and active-service recovery.
+- A focused service-setup workspace and broadcast-style Live Console with a readable programme queue and planned-versus-actual timing context.
+- Drag reordering for upcoming programme sections while completed and currently running sections remain fixed.
+- Automated coverage for upcoming-section reordering and the settings migration used by this release.
 
 ### Changed
 
-- Documented the local `main` to GitHub `staging` workflow and `staging` to production `main` promotion policy.
-- Split staging test artifacts from draft production releases and added strict version-tag checks before release builds.
-- Added unsigned, commit-labelled production-candidate Actions artifacts for successful GitHub `main` pushes, with bounded retention and checksums.
-- Made the unsigned policy explicit with Tauri `--no-sign` for staging, main candidates, and draft tag builds until signing is deliberately enabled.
-- Set the current production line to `1.0.4`; future patch releases continue from this line and the planned major redesign remains reserved for `2.0.0`.
-- Kept production releases as drafts until signing and notarization are configured and manually verified.
+- Reworked the control-window interface across setup, templates, reports, settings, and live operation while preserving the simple black stage display.
+- Changed the built-in warning threshold from five minutes to two minutes. Existing installations migrate the old built-in default once without overwriting a user-selected five-minute threshold.
+- Updated every application version source to `2.0.0` for the major New UI release.
+
+### Release status
+
+- `v2.0.0` is built as an unsigned draft release for maintainer testing; it is not a publicly published stable release.
+- macOS and Windows installers remain test-only until signing/notarization and manual release review are complete.
 
 ### Release preparation still open
 
@@ -27,8 +34,8 @@ This changelog begins with the initial public documentation work. Earlier reposi
 - Complete the signing/notarization policy, supported-version window, and update strategy.
 - Decide whether to add a Code of Conduct and GitHub issue forms/templates.
 
-## [1.0.4] — current production line
+## [1.0.4] — previous production line
 
-- The package, Cargo, lockfile, and Tauri configuration sources report version `1.0.4`.
-- No stable public installer has been published for this version; matching `v1.0.4` must be created only after the version change reaches GitHub `main`.
+- The package, Cargo, lockfile, and Tauri configuration sources reported version `1.0.4` at the release tag.
+- `v1.0.4` was published on 2026-08-03 with unsigned macOS DMG, Windows MSI, and Windows NSIS installers and is superseded by the `2.0.0` release line.
 - No historical user-facing release notes are recorded for this version in the repository.
