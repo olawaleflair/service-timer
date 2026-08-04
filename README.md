@@ -18,7 +18,6 @@ The current codebase provides:
 - A separate stage-display window that shows only the current section name and timer. It can target another connected display, or open as a separate window on a single-display setup.
 - Local templates, settings, report history, and active-service recovery data. Core use does not require an account, cloud database, or internet connection.
 - Planned-versus-actual reports with section variance and service timing insights. The app keeps the latest 30 reports.
-- Dark/light control-window themes. The stage display remains black with high-contrast text.
 
 The app is designed for manual section changes by default. Automatic movement to the next section is available as a setting/service option.
 

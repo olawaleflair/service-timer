@@ -109,7 +109,7 @@ It must not show:
 - notes
 - branding
 
-The stage display should remain black with high-contrast text regardless of control-window theme.
+The stage display should remain black with high-contrast text at all times.
 
 ## Timer Rules
 

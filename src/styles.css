@@ -747,10 +747,6 @@ textarea:focus-visible {
   color: var(--ink);
 }
 
-.theme-light {
-  color-scheme: light;
-}
-
 /* The setup and live views use the reference composition edge-to-edge. */
 .main-view.screen-start,
 .main-view.screen-live,

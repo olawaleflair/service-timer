@@ -1060,7 +1060,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app-shell theme-${state.settings.theme}`}>
+    <div className="app-shell">
       {!(["home", "start", "builder", "stageSetup", "live", "templates", "templateEditor", "reports", "reportDetail", "settings"] as Screen[]).includes(state.screen) && (
         <Header screen={state.screen} onHome={() => navigate("home")} />
       )}
