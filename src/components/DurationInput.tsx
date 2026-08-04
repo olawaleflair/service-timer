@@ -76,6 +76,7 @@ export function DurationInput({ valueSeconds, onChange, ariaLabel = "Duration", 
     if (event.key === "Enter") {
       event.preventDefault();
       commit();
+      event.currentTarget.blur();
       return;
     }
     if (event.key === "Escape") {

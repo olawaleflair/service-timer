@@ -39,6 +39,13 @@ export async function openStageDisplay(displayId: string, testMode = false): Pro
   await safeInvoke("open_stage_display", { displayId, testMode }, undefined);
 }
 
+export async function focusMainWindow(): Promise<void> {
+  if (!isTauriRuntime()) return;
+  const window = getCurrentWindow();
+  await window.show();
+  await window.setFocus();
+}
+
 export async function closeStageDisplay(): Promise<void> {
   if (!isTauriRuntime()) return;
   await safeInvoke("close_stage_display", undefined, undefined);
@@ -49,6 +56,7 @@ export async function closeApplication(): Promise<void> {
 }
 
 export async function setMainCloseGuard(guarded: boolean): Promise<void> {
+  if (!isTauriRuntime()) return;
   await safeInvoke("set_main_close_guard", { guarded }, undefined);
 }
 
