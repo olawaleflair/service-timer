@@ -11,8 +11,8 @@ on:
       - main
 
 concurrency:
-  group: production-${{ github.ref }}
-  cancel-in-progress: true
+  group: production-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -74,6 +74,166 @@ jobs:
       - name: Check Rust backend
         working-directory: src-tauri
         run: cargo check
+
+  production-candidate:
+    name: Production candidate (${{ matrix.platform }})
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: quality
+    runs-on: ${{ matrix.platform }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            bundle-args: --bundles dmg
+            artifact-name: macos-dmg
+            bundle-requirements: src-tauri/target/release/bundle/dmg|.dmg
+          - platform: windows-latest
+            bundle-args: --bundles msi,nsis
+            artifact-name: windows-installers
+            bundle-requirements: |
+              src-tauri/target/release/bundle/msi|.msi
+              src-tauri/target/release/bundle/nsis|.exe
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable action
+        with:
+          toolchain: stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Read application version
+        id: app-version
+        shell: node {0}
+        run: |
+          const fs = require("node:fs");
+          const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          if (!packageJson.version) {
+            throw new Error("package.json does not define an application version");
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "version=" + packageJson.version + "\n");
+
+      - name: Build unsigned production candidate installer
+        # Remove --no-sign only when code-signing credentials and policy are deliberately enabled.
+        run: npm run tauri build -- --no-sign ${{ matrix.bundle-args }}
+
+      - name: Verify bundle paths and write checksums
+        env:
+          APP_VERSION: ${{ steps.app-version.outputs.version }}
+          ARTIFACT_NAME: ${{ matrix.artifact-name }}
+          BUNDLE_REQUIREMENTS: ${{ matrix.bundle-requirements }}
+          CANDIDATE_ARTIFACT_DIRECTORY: production-candidate
+        shell: node {0}
+        run: |
+          const crypto = require("node:crypto");
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const requirements = process.env.BUNDLE_REQUIREMENTS
+            .split(/\r?\n/)
+            .map((requirement) => requirement.trim())
+            .filter(Boolean);
+          const files = [];
+
+          for (const requirement of requirements) {
+            const [directory, extension] = requirement.split("|");
+            if (!directory || !extension) {
+              throw new Error("Bundle requirement must be DIRECTORY|EXTENSION: " + requirement);
+            }
+            if (!fs.existsSync(directory) || !fs.statSync(directory).isDirectory()) {
+              throw new Error("Expected bundle directory is missing: " + directory);
+            }
+
+            const matches = fs.readdirSync(directory).filter((entry) => {
+              const file = path.join(directory, entry);
+              return fs.statSync(file).isFile() && entry.endsWith(extension);
+            });
+            if (matches.length === 0) {
+              throw new Error("Expected bundle output is missing: " + directory + "/*" + extension);
+            }
+            for (const entry of matches) {
+              files.push({
+                source: path.join(directory, entry),
+                bundleDirectory: path.basename(directory),
+                fileName: entry,
+              });
+            }
+          }
+
+          for (const file of files) {
+            if (!file.fileName.includes(process.env.APP_VERSION)) {
+              throw new Error(
+                "Bundle filename does not contain " +
+                  process.env.APP_VERSION +
+                  ": " +
+                  file.source,
+              );
+            }
+          }
+
+          const artifactRoot = process.env.CANDIDATE_ARTIFACT_DIRECTORY;
+          const bundlesRoot = path.join(artifactRoot, "bundles", process.env.ARTIFACT_NAME);
+          const checksumsRoot = path.join(artifactRoot, "checksums");
+          fs.mkdirSync(bundlesRoot, { recursive: true });
+          fs.mkdirSync(checksumsRoot, { recursive: true });
+          const checksums = files
+            .sort((left, right) => left.source.localeCompare(right.source))
+            .map((file) => {
+              const destination = path.join(
+                bundlesRoot,
+                file.bundleDirectory,
+                file.fileName,
+              );
+              fs.mkdirSync(path.dirname(destination), { recursive: true });
+              fs.copyFileSync(file.source, destination);
+              const digest = crypto
+                .createHash("sha256")
+                .update(fs.readFileSync(destination))
+                .digest("hex");
+              const relativePath = path.relative(artifactRoot, destination).split(path.sep).join("/");
+              return digest + "  " + relativePath;
+            })
+            .join("\n");
+          fs.writeFileSync(
+            path.join(checksumsRoot, process.env.ARTIFACT_NAME + ".sha256"),
+            checksums + "\n",
+          );
+
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            "### Unsigned production candidate\n\n" +
+              "- Version: " + process.env.APP_VERSION + "\n" +
+              "- Commit: " + process.env.GITHUB_SHA + "\n" +
+              "- Bundles verified: " + files.length + "\n" +
+              "- Checksum paths are relative to the downloaded artifact root.\n" +
+              "- This output is test material; no GitHub Release or updater feed was changed.\n",
+          );
+
+      - name: Upload unsigned production candidate installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: PRODUCTION-CANDIDATE-${{ steps.app-version.outputs.version }}-${{ github.sha }}-${{ matrix.artifact-name }}
+          path: production-candidate
+          if-no-files-found: error
+          retention-days: 14
 
   promotion-source:
     name: Main promotion source
@@ -152,11 +312,17 @@ jobs:
           const expected = match[1];
           const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
           const packageLock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+          const cargoToml = fs.readFileSync("src-tauri/Cargo.toml", "utf8");
+          const cargoLock = fs.readFileSync("src-tauri/Cargo.lock", "utf8");
           const tauriConfig = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
+          const cargoVersion = /^\[package\][\s\S]*?^version\s*=\s*"([^"]+)"/m.exec(cargoToml)?.[1];
+          const cargoLockVersion = /\[\[package\]\]\nname = "service-timer"\nversion = "([^"]+)"/.exec(cargoLock)?.[1];
           const versions = {
             "package.json": packageJson.version,
             "package-lock.json": packageLock.version,
             "package-lock.json packages root": packageLock.packages?.[""]?.version,
+            "src-tauri/Cargo.toml": cargoVersion,
+            "src-tauri/Cargo.lock": cargoLockVersion,
             "src-tauri/tauri.conf.json": tauriConfig.version,
           };
 
@@ -230,4 +396,5 @@ jobs:
           releaseBody: "Draft release for maintainer testing. Do not distribute until the installers are signed/notarized and this release is manually published."
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.bundle-args }}
+          # Remove --no-sign only when code-signing credentials and policy are deliberately enabled.
+          args: --no-sign ${{ matrix.bundle-args }}

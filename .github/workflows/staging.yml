@@ -116,7 +116,8 @@ jobs:
         run: npm ci
 
       - name: Build STAGING test installer
-        run: npm run tauri build -- ${{ matrix.bundle-args }}
+        # Remove --no-sign only when code-signing credentials and policy are deliberately enabled.
+        run: npm run tauri build -- --no-sign ${{ matrix.bundle-args }}
 
       - name: Upload STAGING test artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
