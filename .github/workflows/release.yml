@@ -87,9 +87,13 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            bundle-args: --bundles dmg
-            artifact-name: macos-dmg
-            bundle-requirements: src-tauri/target/release/bundle/dmg|.dmg
+            bundle-args: --target aarch64-apple-darwin --bundles dmg
+            artifact-name: macos-apple-silicon-dmg
+            bundle-requirements: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg|.dmg
+          - platform: macos-13
+            bundle-args: --target x86_64-apple-darwin --bundles dmg
+            artifact-name: macos-intel-dmg
+            bundle-requirements: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg|.dmg
           - platform: windows-latest
             bundle-args: --bundles msi,nsis
             artifact-name: windows-installers
@@ -350,7 +354,9 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            bundle-args: --bundles dmg
+            bundle-args: --target aarch64-apple-darwin --bundles dmg
+          - platform: macos-13
+            bundle-args: --target x86_64-apple-darwin --bundles dmg
           - platform: windows-latest
             bundle-args: --bundles msi,nsis
 
