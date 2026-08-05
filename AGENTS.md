@@ -21,7 +21,6 @@ This project is a Tauri v2 desktop app for a church media team. It prioritizes r
 
 ## Important UX Constraints
 
-- The control UI supports dark and light mode.
 - The stage display must remain black, high contrast, and readable from a distance.
 - Modal close buttons use icon buttons, not text.
 - The live “Next section” action advances the service to the next program section.

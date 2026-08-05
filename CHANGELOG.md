@@ -8,6 +8,16 @@ This changelog begins with the initial public documentation work. Earlier reposi
 
 No changes yet.
 
+## [2.0.1] — 2026-08-05
+
+### Changed
+
+- Removed unused control-theme scaffolding after the light interface became the supported application appearance.
+
+### Release status
+
+- `v2.0.1` is an unsigned maintenance release. macOS and Windows may show security warnings during installation.
+
 ## [2.0.0] — 2026-08-04
 
 ### Added
@@ -25,8 +35,8 @@ No changes yet.
 
 ### Release status
 
-- `v2.0.0` is built as an unsigned draft release for maintainer testing; it is not a publicly published stable release.
-- macOS and Windows installers remain test-only until signing/notarization and manual release review are complete.
+- `v2.0.0` established the major New UI release line.
+- macOS and Windows installers are unsigned and require manual release review before public publishing.
 
 ### Release preparation still open
 

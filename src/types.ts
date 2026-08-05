@@ -54,7 +54,6 @@ export interface Template {
 }
 
 export interface Settings {
-  theme: "dark" | "light";
   soundAlerts: boolean;
   autoMoveToNextSection: boolean;
   defaultWarningTimeSeconds: number;

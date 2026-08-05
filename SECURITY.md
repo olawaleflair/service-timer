@@ -22,7 +22,7 @@ Please give maintainers a reasonable opportunity to investigate before public di
 
 The project does not yet have a formal security response SLA or supported-version window. Maintainers will acknowledge and assess reports as promptly as practical, coordinate fixes or mitigations, and document a release or advisory when appropriate.
 
-Until a support policy is published, report against the latest published release or the current `main` commit and include the exact version/commit in the report. The repository currently contains version `1.0.4` in its package and Tauri configuration; that value is not by itself evidence that a stable release has been published.
+Until a support policy is published, report against the latest published release or the current `main` commit and include the exact version/commit in the report. The repository currently contains version `2.0.1` in its package and Tauri configuration; the version alone is not evidence that an installer is signed or notarized.
 
 ## Release and dependency safety
 

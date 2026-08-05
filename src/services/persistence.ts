@@ -5,7 +5,6 @@ import { isTauriRuntime } from "./runtime";
 
 const STORE_PATH = "service-timer.json";
 const DEFAULT_SETTINGS: Settings = {
-  theme: "dark",
   soundAlerts: false,
   autoMoveToNextSection: false,
   defaultWarningTimeSeconds: 120,
@@ -79,7 +78,12 @@ export function normalizePersistedData(data: PersistedData): PersistedData {
   const active = data.activeService && data.activeService.status !== "ended"
     ? recoverServicePaused(data.activeService)
     : null;
-  const settings = { ...DEFAULT_SETTINGS, ...data.settings };
+  const settings: Settings = {
+    soundAlerts: data.settings?.soundAlerts ?? DEFAULT_SETTINGS.soundAlerts,
+    autoMoveToNextSection: data.settings?.autoMoveToNextSection ?? DEFAULT_SETTINGS.autoMoveToNextSection,
+    defaultWarningTimeSeconds: data.settings?.defaultWarningTimeSeconds ?? DEFAULT_SETTINGS.defaultWarningTimeSeconds,
+    lastSelectedDisplayId: data.settings?.lastSelectedDisplayId ?? DEFAULT_SETTINGS.lastSelectedDisplayId,
+  };
 
   // Convert only data written before the default changed. Once the marker is
   // present, a user's intentional five-minute setting must be preserved.
