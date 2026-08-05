@@ -6,7 +6,7 @@ This checklist applies to Church Timer Pro, currently branded Service Timer. Git
 
 - [ ] Confirm the promotion has reached GitHub `main` and production quality passes.
 - [ ] Download the `PRODUCTION-CANDIDATE-<version>-<commit>-<platform>` Actions artifacts when installer testing is needed.
-- [ ] Verify the expected macOS DMG and Windows MSI/NSIS files plus the embedded SHA-256 manifest; run checksum verification from the downloaded artifact root.
+- [ ] Verify both expected macOS DMGs (Apple Silicon and Intel) and the Windows MSI/NSIS files plus the embedded SHA-256 manifest; run checksum verification from the downloaded artifact root.
 - [ ] Confirm the candidate and staging workflows use Tauri `--no-sign` while signing is not deliberately configured.
 - [ ] Treat these unsigned, 14-day artifacts as maintainer test material only. They do not create a GitHub Release or updater feed.
 
@@ -17,10 +17,10 @@ This checklist applies to Church Timer Pro, currently branded Service Timer. Git
 - [ ] Update `CHANGELOG.md` and relevant public release documentation.
 - [ ] Run `npm test`, `npm run build`, and `cd src-tauri && cargo check`.
 - [ ] Promote the change through GitHub `staging` and merge it into GitHub `main`.
-- [ ] Only after the version change is on GitHub `main`, create the exact matching tag (for example, `v2.0.1`).
+- [ ] Only after the version change is on GitHub `main`, create the exact matching tag (for example, `v2.0.2`).
 - [ ] Confirm CI verifies tag reachability, strict tag syntax, and every version source before building the draft release.
 - [ ] Confirm the draft tag workflow still uses Tauri `--no-sign`; remove or condition that flag only as part of a reviewed signing change.
-- [ ] Test the draft macOS and Windows installers and review the generated release notes/assets.
+- [ ] Test the draft Apple Silicon macOS, Intel macOS, and Windows installers and review the generated release notes/assets.
 
 ## Before public publishing
 

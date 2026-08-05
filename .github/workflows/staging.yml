@@ -82,9 +82,13 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            bundle-args: --bundles dmg
-            artifact-name: macos-dmg
-            artifact-path: src-tauri/target/release/bundle/dmg/*.dmg
+            bundle-args: --target aarch64-apple-darwin --bundles dmg
+            artifact-name: macos-apple-silicon-dmg
+            artifact-path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          - platform: macos-latest
+            bundle-args: --target x86_64-apple-darwin --bundles dmg
+            artifact-name: macos-intel-dmg
+            artifact-path: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
           - platform: windows-latest
             bundle-args: --bundles msi,nsis
             artifact-name: windows-installers
@@ -106,6 +110,7 @@ jobs:
         uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable action
         with:
           toolchain: stable
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8

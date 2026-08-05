@@ -2,7 +2,7 @@
 
 Church Timer Pro is the public name for the project currently branded **Service Timer** in the application and repository. It is an offline-first desktop timer for church media teams that need a calm, readable way to prepare and run a service program.
 
-> **Release status:** The current application/configuration version is `2.0.1`, a maintenance release on the major New UI line. Every successful push to GitHub `main` creates clearly labelled, unsigned production-candidate Actions artifacts using Tauri’s explicit `--no-sign` policy for maintainer testing. Strictly matched version tags create draft GitHub releases; macOS and Windows may show security warnings until signing/notarization is configured.
+> **Release status:** The current application/configuration version is `2.0.2`, a maintenance release on the major New UI line. Every successful push to GitHub `main` creates clearly labelled, unsigned production-candidate Actions artifacts using Tauri’s explicit `--no-sign` policy for maintainer testing. Strictly matched version tags create draft GitHub releases; macOS and Windows may show security warnings until signing/notarization is configured.
 
 [Repository](https://github.com/olawaleflair/service-timer) · [Releases](https://github.com/olawaleflair/service-timer/releases) · [Changelog](CHANGELOG.md) · [Security policy](SECURITY.md)
 
@@ -38,7 +38,7 @@ When a release has been published, download installers from the [GitHub Releases
 The current release workflow is configured to build:
 
 - Windows MSI and NSIS installers.
-- A macOS DMG.
+- Separate macOS DMGs for Apple Silicon and Intel Macs.
 
 The project context describes Windows as the primary orientation. Linux packaging is not configured in the current release workflow, so Linux should be considered unsupported unless a maintainer publishes separate guidance. Draft releases and staging artifacts are intended for testing before publication and are not end-user downloads.
 
@@ -46,11 +46,11 @@ The project context describes Windows as the primary orientation. Linux packagin
 
 - Local `main` is the working branch. Push it only to the GitHub `staging` branch with `git push origin main:staging`; do not push local `main` to `origin/main`.
 - GitHub `main` is the production branch. Promote changes only with a pull request from the repository’s `staging` branch to `main`.
-- Pushes and pull requests involving `staging` run quality checks and create short-lived, clearly labelled test artifacts for macOS and Windows.
-- Production quality checks run on `main`. Successful pushes to `main` also create unsigned, 14-day production-candidate Actions artifacts using Tauri `--no-sign`, named with the application version and commit SHA; the self-contained artifacts include checksum manifests whose paths are relative to the downloaded artifact root. These artifacts are for maintainer testing and do not create a GitHub Release or updater feed.
+- Pushes and pull requests involving `staging` run quality checks and create short-lived, clearly labelled test artifacts for Apple Silicon Macs, Intel Macs, and Windows.
+- Production quality checks run on `main`. Successful pushes to `main` also create unsigned, 14-day production-candidate Actions artifacts for Apple Silicon Macs, Intel Macs, and Windows using Tauri `--no-sign`, named with the application version and commit SHA; the self-contained artifacts include checksum manifests whose paths are relative to the downloaded artifact root. These artifacts are for maintainer testing and do not create a GitHub Release or updater feed.
 - A version tag must point to a commit reachable from `main` and match the versions in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`.
 - Version-tag builds remain draft releases and use `--no-sign` until maintainers configure and verify signing/notarization; that flag must be deliberately removed or conditioned before signed publishing.
-- The current release line is `2.0.1`, following the major New UI release; later maintenance releases continue as `2.0.x` patch versions.
+- The current release line is `2.0.2`, following the major New UI release; later maintenance releases continue as `2.0.x` patch versions.
 
 See [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) for the maintainer release steps.
 

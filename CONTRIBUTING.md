@@ -86,14 +86,14 @@ Do not include local persistence files, personal information, or sensitive secur
 - Push local `main` only to the GitHub `staging` branch: `git push origin main:staging`.
 - Do not push local `main` to `origin/main`.
 - GitHub `main` is production and receives changes only through a pull request from the repository’s `staging` branch.
-- The `staging` workflow runs quality checks and creates short-lived macOS and Windows test artifacts. These artifacts are for maintainer testing, not end-user distribution.
-- The production workflow runs quality checks on `main`, then creates 14-day unsigned macOS and Windows production-candidate Actions artifacts for each successful `main` push. Candidate and staging builds explicitly pass Tauri `--no-sign`; artifacts include the application version, commit SHA, and self-contained checksum manifests and are not public release installers.
+- The `staging` workflow runs quality checks and creates short-lived Apple Silicon macOS, Intel macOS, and Windows test artifacts. These artifacts are for maintainer testing, not end-user distribution.
+- The production workflow runs quality checks on `main`, then creates 14-day unsigned Apple Silicon macOS, Intel macOS, and Windows production-candidate Actions artifacts for each successful `main` push. Candidate and staging builds explicitly pass Tauri `--no-sign`; artifacts include the application version, commit SHA, and self-contained checksum manifests and are not public release installers.
 
 ## Releases
 
-Production releases are driven by strict version tags matching `vMAJOR.MINOR.PATCH`. The tagged commit must be reachable from GitHub `main`, and the tag version must match `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`. The workflow always creates draft macOS and Windows releases for maintainer review with `--no-sign` until signing is deliberately configured; it does not publish installers automatically. Maintainers must manually verify, sign/notarize, and publish a draft release before treating it as an end-user release.
+Production releases are driven by strict version tags matching `vMAJOR.MINOR.PATCH`. The tagged commit must be reachable from GitHub `main`, and the tag version must match `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`. The workflow always creates draft Apple Silicon macOS, Intel macOS, and Windows releases for maintainer review with `--no-sign` until signing is deliberately configured; it does not publish installers automatically. Maintainers must manually verify, sign/notarize, and publish a draft release before treating it as an end-user release.
 
-The current production line is `2.0.1`, following the major New UI release. Follow [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) for the version bump, promotion, tag, draft-release review, and later signing/publishing steps.
+The current production line is `2.0.2`, following the major New UI release. Follow [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) for the version bump, promotion, tag, draft-release review, and later signing/publishing steps.
 
 There is not yet a complete public release runbook, code-signing policy, or updater process. Keep release preparation and promotion notes in the pull request.
 
