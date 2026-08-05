@@ -8,6 +8,20 @@ This changelog begins with the initial public documentation work. Earlier reposi
 
 No changes yet.
 
+## [2.0.2] — 2026-08-05
+
+### Added
+
+- A dedicated Intel Mac DMG alongside the existing Apple Silicon DMG, so churches can download the installer that matches their Mac.
+
+### Changed
+
+- Staging, production-candidate, and version-tag workflows now build and verify Apple Silicon and Intel macOS installers separately.
+
+### Release status
+
+- `v2.0.2` is an unsigned maintenance release. macOS and Windows may show security warnings during installation.
+
 ## [2.0.1] — 2026-08-05
 
 ### Changed

@@ -1,6 +1,6 @@
 [package]
 name = "service-timer"
-version = "2.0.1"
+version = "2.0.2"
 description = "Service Timer desktop app"
 authors = ["Service Timer"]
 edition = "2021"
