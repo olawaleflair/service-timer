@@ -82,7 +82,19 @@ Do not include local persistence files, personal information, or sensitive secur
 
 ## Branch and promotion policy
 
-- Use local `main` as the working branch for changes.
+### Community contributions
+
+The repository is public, but outside contributors do not push directly to this project. Instead:
+
+1. Fork the repository from the public `main` branch.
+2. Create a focused branch in your fork.
+3. Open a pull request with **`staging`** as the target branch.
+
+Do not open community pull requests directly into `main`. A maintainer reviews and merges accepted contributions into `staging` first, where the test-build workflow runs. Changes reach `main` only after staging validation.
+
+### Maintainer promotion path
+
+- Use local `main` as the working branch for maintainer changes.
 - Push local `main` only to the GitHub `staging` branch: `git push origin main:staging`.
 - Do not push local `main` to `origin/main`.
 - GitHub `main` is production and receives changes only through a pull request from the repository’s `staging` branch.
