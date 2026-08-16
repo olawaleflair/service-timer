@@ -48,9 +48,11 @@ The project context describes Windows as the primary orientation. Linux packagin
 
 - Local `main` is the working branch. Push it only to the GitHub `staging` branch with `git push origin main:staging`; do not push local `main` to `origin/main`.
 - GitHub `main` is the production branch. Promote changes only with a pull request from the repository’s `staging` branch to `main`.
+- The owner can start **Promote staging to production** from the repository’s Actions page. It opens or reuses the required `staging` → `main` pull request but never approves or merges it.
 - Pushes and pull requests involving `staging` run quality checks and create short-lived, clearly labelled test artifacts for Apple Silicon Macs, Intel Macs, and Windows.
 - Production quality checks run on `main`. Successful pushes to `main` also create unsigned, 14-day production-candidate Actions artifacts for Apple Silicon Macs, Intel Macs, and Windows using Tauri `--no-sign`, named with the application version and commit SHA; the self-contained artifacts include checksum manifests whose paths are relative to the downloaded artifact root. These artifacts are for maintainer testing and do not create a GitHub Release or updater feed.
 - A version tag must point to a commit reachable from `main` and match the versions in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`.
+- Production promotion still requires the owner’s CODEOWNER approval, resolved conversations, and successful `Production quality` and `Main promotion source` checks. The manual workflow cannot bypass those controls or enable auto-merge.
 - Version-tag builds remain draft releases and use `--no-sign` until maintainers configure and verify signing/notarization; that flag must be deliberately removed or conditioned before signed publishing.
 - The current release line is `2.0.2`, following the major New UI release; later maintenance releases continue as `2.0.x` patch versions.
 
@@ -159,4 +161,4 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 
 ## Project decisions still open
 
-The first public release still needs maintainers to complete the signed-release policy, update strategy, supported-version window, Code of Conduct, issue forms/templates, and the public security contact path. The current documentation intentionally describes those items as open rather than implying that a policy already exists.
+The project still needs maintainers to complete the signed-release policy, update strategy, and supported-version window. Community participation now has a Code of Conduct, structured issue forms, pull-request guidance, owner review rules, and a private security-reporting path.
