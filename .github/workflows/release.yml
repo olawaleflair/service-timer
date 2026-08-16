@@ -247,11 +247,17 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Require promotion from the repository staging branch
+      - name: Checkout promotion history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Require an exact, current staging promotion
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -259,12 +265,22 @@ jobs:
             echo "Expected a pull request targeting main; got $BASE_REF."
             exit 1
           fi
-          if [[ "$HEAD_REF" != "staging" ]]; then
-            echo "Production promotion PRs must come from staging; got $HEAD_REF."
+          if [[ "$HEAD_REF" != promote/staging-* ]]; then
+            echo "Production promotion PRs must use a controlled promote/staging-* branch; got $HEAD_REF."
             exit 1
           fi
           if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]; then
-            echo "The promotion source must be the repository's staging branch, not a fork."
+            echo "The promotion source must be this repository, not a fork."
+            exit 1
+          fi
+
+          git fetch origin main staging "$HEAD_SHA" --no-tags
+          if [[ "$(git rev-parse "${HEAD_SHA}^")" != "$(git rev-parse origin/main)" ]]; then
+            echo "The promotion commit must be based directly on the current main commit."
+            exit 1
+          fi
+          if [[ "$(git rev-parse "${HEAD_SHA}^{tree}")" != "$(git rev-parse "origin/staging^{tree}")" ]]; then
+            echo "The promotion source tree does not exactly match current staging."
             exit 1
           fi
 
