@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
@@ -32,16 +32,35 @@ jobs:
             exit 1
           fi
 
+      - name: Create a staging-verified promotion branch
+        id: promotion
+        run: |
+          set -euo pipefail
+          staging_sha="$(git rev-parse origin/staging)"
+          main_sha="$(git rev-parse origin/main)"
+          branch="promote/staging-${staging_sha:0:12}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          promotion_sha="$(
+            printf 'Promote staging %s to production\n' "$staging_sha" |
+              git commit-tree "${staging_sha}^{tree}" -p "$main_sha"
+          )"
+
+          git push origin "$promotion_sha:refs/heads/$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
       - name: Open or reuse the promotion pull request
         env:
           GH_TOKEN: ${{ github.token }}
+          PROMOTION_BRANCH: ${{ steps.promotion.outputs.branch }}
         run: |
           set -euo pipefail
           existing_url="$(
             gh pr list \
               --repo "$GITHUB_REPOSITORY" \
               --base main \
-              --head staging \
+              --head "$PROMOTION_BRANCH" \
               --state open \
               --json url \
               --jq '.[0].url // empty'
@@ -55,6 +74,6 @@ jobs:
           gh pr create \
             --repo "$GITHUB_REPOSITORY" \
             --base main \
-            --head staging \
+            --head "$PROMOTION_BRANCH" \
             --title "Promote staging to production" \
-            --body $'## Production promotion\n\nThis pull request was opened by the owner-triggered promotion workflow. It contains the changes currently validated on `staging`.\n\nBefore merging:\n\n- Review the complete diff.\n- Wait for `Production quality` and `Main promotion source`.\n- Confirm the latest `Staging quality` and platform test builds succeeded.\n- Obtain approval from the project owner as CODEOWNER.\n- Squash-merge only when the production change is ready.\n\nThis workflow does not approve, merge, or enable auto-merge.'
+            --body $'## Production promotion\n\nThis pull request was opened by the owner-triggered promotion workflow. Its commit is based on the current `main` commit and its complete source tree exactly matches the current `staging` branch. The required `Main promotion source` check verifies both properties.\n\nBefore merging:\n\n- Review the complete diff.\n- Wait for `Production quality` and `Main promotion source`.\n- Confirm the latest `Staging quality` and platform test builds succeeded.\n- Obtain approval from the project owner as CODEOWNER.\n- Squash-merge only when the production change is ready.\n\nThis workflow does not approve, merge, enable auto-merge, or bypass branch protection.'

@@ -99,11 +99,11 @@ Do not open community pull requests directly into `main`. The project owner revi
 - Use local `main` as the working branch for maintainer changes.
 - Push local `main` only to the GitHub `staging` branch: `git push origin main:staging`.
 - Do not push local `main` to `origin/main`.
-- GitHub `main` is production and receives changes only through a pull request from the repository’s `staging` branch. The project owner performs or explicitly approves the final merge.
-- To prepare that pull request, the owner opens the repository’s **Actions** page, chooses **Promote staging to production**, and selects **Run workflow**. The workflow opens or reuses a `staging` → `main` pull request; it cannot approve or merge it.
+- GitHub `main` is production and receives only the complete, current source tree from the repository’s `staging` branch. The project owner performs or explicitly approves the final merge.
+- To prepare that pull request, the owner opens the repository’s **Actions** page, chooses **Promote staging to production**, and selects **Run workflow**. The workflow creates a temporary `promote/staging-*` branch based directly on current `main`; that commit's complete tree exactly matches current `staging`. It then opens or reuses the pull request to `main`. The required `Main promotion source` check verifies both properties, so the temporary branch cannot introduce content that was not validated on `staging`.
 - The `staging` workflow runs quality checks and creates short-lived Apple Silicon macOS, Intel macOS, and Windows test artifacts. These artifacts are for maintainer testing, not end-user distribution.
 - The production workflow runs quality checks on `main`, then creates 14-day unsigned Apple Silicon macOS, Intel macOS, and Windows production-candidate Actions artifacts for each successful `main` push. Candidate and staging builds explicitly pass Tauri `--no-sign`; artifacts include the application version, commit SHA, and self-contained checksum manifests and are not public release installers.
-- The owner reviews the promotion diff, waits for `Production quality` and `Main promotion source`, resolves review conversations, gives the required CODEOWNER approval, and squash-merges only when production is ready. No promotion workflow step uses auto-merge or bypasses branch protection.
+- The owner reviews the promotion diff, waits for `Production quality` and `Main promotion source`, resolves review conversations, gives the required CODEOWNER approval, and squash-merges only when production is ready. No promotion workflow step approves, merges, enables auto-merge, or bypasses branch protection. Repository auto-delete removes the temporary promotion branch after merging.
 
 ## Releases
 
