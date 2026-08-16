@@ -159,4 +159,4 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 
 ## Project decisions still open
 
-The first public release still needs maintainers to complete the signed-release policy, update strategy, supported-version window, Code of Conduct, issue forms/templates, and the public security contact path. The current documentation intentionally describes those items as open rather than implying that a policy already exists.
+The project still needs maintainers to complete the signed-release policy, update strategy, and supported-version window. Community participation now has a Code of Conduct, structured issue forms, pull-request guidance, owner review rules, and a private security-reporting path.
