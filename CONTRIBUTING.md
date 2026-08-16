@@ -92,19 +92,20 @@ The repository is public, but outside contributors do not push directly to this 
 2. Create a focused branch in your fork.
 3. Open a pull request with **`staging`** as the target branch.
 
-Do not open community pull requests directly into `main`. The project owner reviews accepted contributions before they are squash-merged into `staging`, where the test-build workflow runs. Changes reach `main` only after staging validation and a separate owner-approved promotion.
+Do not open community pull requests directly into `main`. Community pull requests require the project owner’s CODEOWNER approval before they are squash-merged into `staging`, where the test-build workflow runs. Changes reach `main` only after staging validation and a separate owner-approved promotion.
 
 ### Maintainer promotion path
 
-- Use local `main` as the working branch for maintainer changes.
-- Push local `main` only to the GitHub `staging` branch: `git push origin main:staging`.
-- Do not push local `main` to `origin/main`.
+- Create a focused branch for maintainer changes and open a pull request into GitHub `staging`; do not push directly to `staging` or `main`.
+- Owner-authored pull requests cannot receive the owner’s own CODEOWNER approval. The owner may use the repository’s sole-admin merge option for such a pull request only after `Staging quality` passes and all review conversations are resolved. The active staging ruleset still requires the pull request and check, permits only squash merging, and blocks deletion and force-push for everyone, including the owner.
+- This is a narrow self-merge path, not permission to skip automated checks or work outside a pull request. Non-owner contributors and automation remain subject to the classic requirement for one owner CODEOWNER approval in addition to the ruleset.
 - GitHub `main` is production and receives only the complete, current source tree from the repository’s `staging` branch. The project owner performs or explicitly approves the final merge.
 - To prepare that pull request, the owner opens the repository’s **Actions** page, chooses **Promote staging to production**, and selects **Run workflow**. The workflow creates a temporary `promote/staging-*` branch based directly on current `main`; that commit's complete tree exactly matches current `staging`. It then opens or reuses the pull request to `main`. The required `Main promotion source` check verifies both properties, so the temporary branch cannot introduce content that was not validated on `staging`.
 - GitHub may hold the bot-authored pull request's workflow run for maintainer approval. If it does, open the run and choose **Approve and run workflows**; this only starts the checks and does not count as the CODEOWNER pull-request approval.
 - The `staging` workflow runs quality checks and creates short-lived Apple Silicon macOS, Intel macOS, and Windows test artifacts. These artifacts are for maintainer testing, not end-user distribution.
 - The production workflow runs quality checks on `main`, then creates 14-day unsigned Apple Silicon macOS, Intel macOS, and Windows production-candidate Actions artifacts for each successful `main` push. Candidate and staging builds explicitly pass Tauri `--no-sign`; artifacts include the application version, commit SHA, and self-contained checksum manifests and are not public release installers.
 - The owner reviews the promotion diff, waits for `Production quality` and `Main promotion source`, resolves review conversations, gives the required CODEOWNER approval, and squash-merges only when production is ready. No promotion workflow step approves, merges, enables auto-merge, or bypasses branch protection. Repository auto-delete removes the temporary promotion branch after merging.
+- GitHub’s unavoidable limitation is that the personal repository’s classic administrator exemption is broader than review-only. The layered active rulesets compensate by independently enforcing pull requests, required checks, resolved conversations, squash-only linear history, and deletion/force-push blocks for administrators too. The owner is the only administrator; the existing write collaborator and automation bots receive no equivalent exemption.
 
 ## Releases
 
