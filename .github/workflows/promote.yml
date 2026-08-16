@@ -24,16 +24,20 @@ jobs:
           fetch-depth: 0
 
       - name: Verify staging has production changes
+        id: changes
         run: |
           set -euo pipefail
           git fetch origin main staging --no-tags
           if git diff --quiet origin/main origin/staging; then
             echo "Staging and main contain the same source; there is nothing to promote."
-            exit 1
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create a staging-verified promotion branch
         id: promotion
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
           set -euo pipefail
           staging_sha="$(git rev-parse origin/staging)"
@@ -51,6 +55,7 @@ jobs:
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
 
       - name: Open or reuse the promotion pull request
+        if: steps.changes.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PROMOTION_BRANCH: ${{ steps.promotion.outputs.branch }}
@@ -77,3 +82,7 @@ jobs:
             --head "$PROMOTION_BRANCH" \
             --title "Promote staging to production" \
             --body $'## Production promotion\n\nThis pull request was opened by the owner-triggered promotion workflow. Its commit is based on the current `main` commit and its complete source tree exactly matches the current `staging` branch. The required `Main promotion source` check verifies both properties.\n\nBefore merging:\n\n- Review the complete diff.\n- Wait for `Production quality` and `Main promotion source`.\n- Confirm the latest `Staging quality` and platform test builds succeeded.\n- Obtain approval from the project owner as CODEOWNER.\n- Squash-merge only when the production change is ready.\n\nThis workflow does not approve, merge, enable auto-merge, or bypass branch protection.'
+
+      - name: Report that production is current
+        if: steps.changes.outputs.has_changes == 'false'
+        run: echo "No promotion pull request was opened because main already matches staging." >> "$GITHUB_STEP_SUMMARY"
