@@ -46,7 +46,8 @@ The project context describes Windows as the primary orientation. Linux packagin
 
 ## Branch and release flow
 
-- Local `main` is the working branch. Push it only to the GitHub `staging` branch with `git push origin main:staging`; do not push local `main` to `origin/main`.
+- Owner and community changes both reach GitHub `staging` through pull requests; do not push directly to `staging` or `main`.
+- Community pull requests require the owner’s CODEOWNER approval. For an owner-authored pull request, GitHub cannot accept self-approval, so the owner may use the repository’s sole-admin merge option only after `Staging quality` has passed and all review conversations are resolved. The active ruleset still enforces the PR, checks, squash-only linear history, and deletion/force-push blocks.
 - GitHub `main` is the production branch. Promote only the complete, current source tree from the repository’s `staging` branch.
 - The owner can start **Promote staging to production** from the repository’s Actions page. It creates a temporary `promote/staging-*` branch based directly on current `main`, copies the exact current `staging` source tree into that commit, and opens or reuses the pull request to `main`. This avoids conflicts between the long-lived branches while preserving squash-only, linear history.
 - If GitHub marks the bot-authored promotion run as awaiting approval, the owner opens the run and chooses **Approve and run workflows**. This starts the required checks; it does not approve or merge the pull request.
