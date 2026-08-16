@@ -1,0 +1,79 @@
+name: Bug report
+description: Report a reproducible problem in Church Timer Pro.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Church Timer Pro. Do not include private service information or vulnerability details here.
+  - type: input
+    id: version
+    attributes:
+      label: App version or commit
+      placeholder: "2.0.2 or commit SHA"
+    validations:
+      required: true
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS Apple Silicon
+        - macOS Intel
+        - Other / development environment
+    validations:
+      required: true
+  - type: dropdown
+    id: build-type
+    attributes:
+      label: Build type
+      options:
+        - Packaged installer
+        - Tauri development build
+        - Browser-only Vite development
+    validations:
+      required: true
+  - type: dropdown
+    id: displays
+    attributes:
+      label: Display setup
+      options:
+        - One display
+        - Multiple displays
+        - Not relevant
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable sequence that triggers the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Logs, screenshots, or additional context
+      description: Remove personal information, service plans, local store data, and credentials before attaching anything.
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security check
+      options:
+        - label: This report does not contain a suspected vulnerability or sensitive exploit details.
+          required: true

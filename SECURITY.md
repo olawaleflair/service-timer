@@ -6,7 +6,7 @@ Church Timer Pro (currently branded Service Timer) is an offline-first desktop a
 
 Please do not disclose suspected vulnerabilities in a public issue, pull request, or discussion.
 
-Use [GitHub’s private vulnerability reporting form](https://github.com/olawaleflair/service-timer/security/advisories/new) when it is available for this repository. If private reporting is unavailable, open a public issue requesting a private contact channel without including exploit details or sensitive data.
+Use [GitHub’s private vulnerability reporting form](https://github.com/olawaleflair/service-timer/security/advisories/new). If GitHub temporarily prevents access to that form, email the maintainer at `omotosoolawale16@gmail.com`. Do not open a public issue containing vulnerability details.
 
 Include, where safe:
 
@@ -22,11 +22,11 @@ Please give maintainers a reasonable opportunity to investigate before public di
 
 The project does not yet have a formal security response SLA or supported-version window. Maintainers will acknowledge and assess reports as promptly as practical, coordinate fixes or mitigations, and document a release or advisory when appropriate.
 
-Until a support policy is published, report against the latest published release or the current `main` commit and include the exact version/commit in the report. The repository currently contains version `2.0.1` in its package and Tauri configuration; the version alone is not evidence that an installer is signed or notarized.
+Until a support policy is published, report against the latest published release or the current `main` commit and include the exact version/commit in the report. The latest published release and current application configuration are `2.0.2`; the version alone is not evidence that an installer is signed or notarized.
 
 ## Release and dependency safety
 
-Download installers only from a manually published release on the project’s [GitHub Releases page](https://github.com/olawaleflair/service-timer/releases). The production workflow intentionally keeps every version-tag release in draft status; Windows code signing and macOS signing/notarization must be configured and verified before maintainers publish one. Staging artifacts, production-candidate Actions artifacts, draft-release assets, and any unsigned installers are test material and must not be treated as verified end-user downloads.
+Download installers only from a manually published release on the project’s [GitHub Releases page](https://github.com/olawaleflair/service-timer/releases). Version-tag automation creates draft releases for owner review. The owner manually published `v2.0.2` as an unsigned release with platform warnings; Windows code signing and macOS signing/notarization are not yet configured. Staging artifacts, production-candidate Actions artifacts, and draft-release assets remain maintainer test material rather than end-user downloads.
 
 The app’s core data path is local. There is no documented cloud backup or synchronization service. Local data locations are platform-specific; do not post their contents in public reports.
 
