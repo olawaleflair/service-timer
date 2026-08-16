@@ -4,7 +4,9 @@ Church Timer Pro is the public name for the project currently branded **Service 
 
 > **Release status:** The current application/configuration version is `2.0.2`, a maintenance release on the major New UI line. Every successful push to GitHub `main` creates clearly labelled, unsigned production-candidate Actions artifacts using Tauri’s explicit `--no-sign` policy for maintainer testing. Strictly matched version tags create draft GitHub releases; macOS and Windows may show security warnings until signing/notarization is configured.
 
-[Repository](https://github.com/olawaleflair/service-timer) · [Releases](https://github.com/olawaleflair/service-timer/releases) · [Changelog](CHANGELOG.md) · [Security policy](SECURITY.md)
+[Repository](https://github.com/olawaleflair/service-timer) · [Contribute](CONTRIBUTING.md) · [Releases](https://github.com/olawaleflair/service-timer/releases) · [Changelog](CHANGELOG.md) · [Security policy](SECURITY.md)
+
+Contributions are welcome. Start with the [contribution guide](CONTRIBUTING.md) for setup, issue, testing, and pull-request instructions. Community changes are reviewed in `staging` before the project owner approves any production merge to `main`.
 
 ## What it does today
 
@@ -143,7 +145,9 @@ The application uses Tauri Store for desktop persistence and a browser `localSto
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow, checks, and pull-request expectations. [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) contains maintainer-facing product and architecture context. [`AGENTS.md`](AGENTS.md) is repository-local automation guidance; it is not an end-user manual or a substitute for this public documentation.
+Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow, checks, issue forms, and pull-request expectations. Community pull requests target `staging`; the project owner has final authority over what is accepted and promoted to `main`. Accepted pull requests use squash merging so each contribution lands as one focused commit.
+
+[`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) contains maintainer-facing product and architecture context. [`AGENTS.md`](AGENTS.md) is repository-local automation guidance; it is not an end-user manual or a substitute for this public documentation. Participation is governed by the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
 ## Security
 

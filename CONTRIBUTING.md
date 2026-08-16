@@ -67,9 +67,11 @@ Keep unrelated formatting or refactors out of a focused change. Update [`README.
 
 For live-control changes, describe the confirmation behavior and the effect on the active service. For stage-display changes, describe single-display and multi-display behavior. For persistence changes, describe recovery behavior and compatibility with existing local data.
 
+Accepted pull requests are squash-merged so each contribution lands as one focused commit. Maintainers may ask for changes, close work that does not fit the project, or defer a contribution even when automated checks pass. The project owner, [@olawaleflair](https://github.com/olawaleflair), has final authority over acceptance and every promotion to production `main`.
+
 ## Issue reports
 
-Until issue forms are added, please include:
+Use the repository's bug-report or feature-request issue form. Bug reports should include:
 
 - App version or commit.
 - Operating system and whether the app was running as a packaged Tauri build or in development.
@@ -90,31 +92,25 @@ The repository is public, but outside contributors do not push directly to this 
 2. Create a focused branch in your fork.
 3. Open a pull request with **`staging`** as the target branch.
 
-Do not open community pull requests directly into `main`. A maintainer reviews and merges accepted contributions into `staging` first, where the test-build workflow runs. Changes reach `main` only after staging validation.
+Do not open community pull requests directly into `main`. The project owner reviews accepted contributions before they are squash-merged into `staging`, where the test-build workflow runs. Changes reach `main` only after staging validation and a separate owner-approved promotion.
 
 ### Maintainer promotion path
 
 - Use local `main` as the working branch for maintainer changes.
 - Push local `main` only to the GitHub `staging` branch: `git push origin main:staging`.
 - Do not push local `main` to `origin/main`.
-- GitHub `main` is production and receives changes only through a pull request from the repository’s `staging` branch.
+- GitHub `main` is production and receives changes only through a pull request from the repository’s `staging` branch. The project owner performs or explicitly approves the final merge.
 - The `staging` workflow runs quality checks and creates short-lived Apple Silicon macOS, Intel macOS, and Windows test artifacts. These artifacts are for maintainer testing, not end-user distribution.
 - The production workflow runs quality checks on `main`, then creates 14-day unsigned Apple Silicon macOS, Intel macOS, and Windows production-candidate Actions artifacts for each successful `main` push. Candidate and staging builds explicitly pass Tauri `--no-sign`; artifacts include the application version, commit SHA, and self-contained checksum manifests and are not public release installers.
 
 ## Releases
 
-Production releases are driven by strict version tags matching `vMAJOR.MINOR.PATCH`. The tagged commit must be reachable from GitHub `main`, and the tag version must match `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`. The workflow always creates draft Apple Silicon macOS, Intel macOS, and Windows releases for maintainer review with `--no-sign` until signing is deliberately configured; it does not publish installers automatically. Maintainers must manually verify, sign/notarize, and publish a draft release before treating it as an end-user release.
+Production releases are driven by strict version tags matching `vMAJOR.MINOR.PATCH`. The tagged commit must be reachable from GitHub `main`, and the tag version must match `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`. The workflow creates draft Apple Silicon macOS, Intel macOS, and Windows releases for maintainer review with `--no-sign` until signing is deliberately configured; it does not publish installers automatically. The owner may manually publish a reviewed unsigned release with clear platform warnings, as with `v2.0.2`, but signing/notarization and clean-install testing remain required before broad promotion.
 
 The current production line is `2.0.2`, following the major New UI release. Follow [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) for the version bump, promotion, tag, draft-release review, and later signing/publishing steps.
 
 There is not yet a complete public release runbook, code-signing policy, or updater process. Keep release preparation and promotion notes in the pull request.
 
-## Policies not added yet
+## Community standards
 
-This initial documentation set intentionally does not add a Code of Conduct or issue-template files. A proposed approach for maintainer review is:
-
-1. Add a short, standard Code of Conduct with a clearly named maintainer contact and enforcement scope before opening broad community participation.
-2. Add separate issue forms for bug reports, feature requests, and documentation improvements.
-3. Keep security reports out of public issue forms and route them through the private disclosure path described in [`SECURITY.md`](SECURITY.md).
-
-The project owners should decide the contact, enforcement responsibilities, and whether GitHub issue forms or plain templates best fit the project before those files are created.
+Participation is governed by the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). Use the repository issue forms for public bugs and feature requests. Keep vulnerability details out of issues and pull requests; use the private disclosure path in [`SECURITY.md`](SECURITY.md).

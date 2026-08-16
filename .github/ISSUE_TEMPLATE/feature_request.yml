@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest a focused improvement for Church Timer Pro.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Church Timer Pro prioritizes calm, reliable, offline-first service operation. Explain the user need before proposing implementation details.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or user need
+      description: What difficulty does a church media team experience today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed improvement
+      description: Describe the smallest useful behavior or workflow.
+    validations:
+      required: true
+  - type: textarea
+    id: live-safety
+    attributes:
+      label: Live-service and offline impact
+      description: Explain effects on timing, stage display, confirmations, local data, or offline use.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include workarounds or simpler options if any.
