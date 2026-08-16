@@ -24,33 +24,48 @@ jobs:
           fetch-depth: 0
 
       - name: Verify staging has production changes
+        id: changes
         run: |
           set -euo pipefail
           git fetch origin main staging --no-tags
           if git diff --quiet origin/main origin/staging; then
             echo "Staging and main contain the same source; there is nothing to promote."
-            exit 1
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create a staging-verified promotion branch
         id: promotion
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
           set -euo pipefail
           staging_sha="$(git rev-parse origin/staging)"
           main_sha="$(git rev-parse origin/main)"
           branch="promote/staging-${staging_sha:0:12}"
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          promotion_sha="$(
-            printf 'Promote staging %s to production\n' "$staging_sha" |
-              git commit-tree "${staging_sha}^{tree}" -p "$main_sha"
-          )"
-
-          git push origin "$promotion_sha:refs/heads/$branch"
+          if git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+            git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" --no-tags
+            promotion_sha="$(git rev-parse "origin/$branch")"
+            if [[ "$(git rev-parse "${promotion_sha}^")" != "$main_sha" ]] ||
+              [[ "$(git rev-parse "${promotion_sha}^{tree}")" != "$(git rev-parse "${staging_sha}^{tree}")" ]]; then
+              echo "Existing promotion branch no longer matches current main and staging. Close its pull request and delete the branch before retrying."
+              exit 1
+            fi
+            echo "Reusing verified promotion branch $branch."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            promotion_sha="$(
+              printf 'Promote staging %s to production\n' "$staging_sha" |
+                git commit-tree "${staging_sha}^{tree}" -p "$main_sha"
+            )"
+            git push origin "$promotion_sha:refs/heads/$branch"
+          fi
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
 
       - name: Open or reuse the promotion pull request
+        if: steps.changes.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PROMOTION_BRANCH: ${{ steps.promotion.outputs.branch }}
@@ -77,3 +92,7 @@ jobs:
             --head "$PROMOTION_BRANCH" \
             --title "Promote staging to production" \
             --body $'## Production promotion\n\nThis pull request was opened by the owner-triggered promotion workflow. Its commit is based on the current `main` commit and its complete source tree exactly matches the current `staging` branch. The required `Main promotion source` check verifies both properties.\n\nBefore merging:\n\n- Review the complete diff.\n- Wait for `Production quality` and `Main promotion source`.\n- Confirm the latest `Staging quality` and platform test builds succeeded.\n- Obtain approval from the project owner as CODEOWNER.\n- Squash-merge only when the production change is ready.\n\nThis workflow does not approve, merge, enable auto-merge, or bypass branch protection.'
+
+      - name: Report that production is current
+        if: steps.changes.outputs.has_changes == 'false'
+        run: echo "No promotion pull request was opened because main already matches staging." >> "$GITHUB_STEP_SUMMARY"
