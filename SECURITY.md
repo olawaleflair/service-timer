@@ -22,11 +22,11 @@ Please give maintainers a reasonable opportunity to investigate before public di
 
 The project does not yet have a formal security response SLA or supported-version window. Maintainers will acknowledge and assess reports as promptly as practical, coordinate fixes or mitigations, and document a release or advisory when appropriate.
 
-Until a support policy is published, report against the latest published release or the current `main` commit and include the exact version/commit in the report. The latest published release and current application configuration are `2.0.2`; the version alone is not evidence that an installer is signed or notarized.
+Until a support policy is published, report against the latest published release or the current `main` commit and include the exact version/commit in the report. The latest published release and current application configuration are `2.0.3`; the version alone is not evidence that an installer is signed or notarized.
 
 ## Release and dependency safety
 
-Download installers only from a manually published release on the project’s [GitHub Releases page](https://github.com/olawaleflair/service-timer/releases). Version-tag automation creates draft releases for owner review. The owner manually published `v2.0.2` as an unsigned release with platform warnings; Windows code signing and macOS signing/notarization are not yet configured. Staging artifacts, production-candidate Actions artifacts, and draft-release assets remain maintainer test material rather than end-user downloads.
+Download installers only from a manually published release on the project’s [GitHub Releases page](https://github.com/olawaleflair/service-timer/releases). Version-tag automation creates draft releases for owner review. The owner manually publishes reviewed releases such as `v2.0.3` as unsigned installers with platform warnings; Windows code signing and macOS signing/notarization are not yet configured. Staging artifacts, production-candidate Actions artifacts, and draft-release assets remain maintainer test material rather than end-user downloads.
 
 The app’s core data path is local. There is no documented cloud backup or synchronization service. Local data locations are platform-specific; do not post their contents in public reports.
 
