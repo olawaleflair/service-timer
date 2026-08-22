@@ -24,8 +24,8 @@ This checklist applies to Church Timer Pro, currently branded Service Timer. Git
 
 ## Before public publishing
 
-- [ ] Configure and verify Windows code signing.
-- [ ] Configure and verify Apple Developer ID signing and macOS notarization.
-- [ ] Re-test clean installation and upgrade behavior on supported operating systems.
-- [ ] Manually publish the draft only after signing/notarization and release review are complete.
+- [ ] Confirm the release remains intentionally unsigned and that the release notes and download page clearly disclose possible macOS and Windows trust warnings.
+- [ ] Re-test clean installation and upgrade behavior on supported operating systems where appropriate environments are available; record any platform gaps honestly.
+- [ ] Manually publish the draft only after the owner reviews the release metadata, installer set, and available test evidence.
+- [ ] Treat Windows code signing and Apple Developer ID signing/notarization as a separate future hardening project; do not imply they are enabled until verified.
 - [ ] Keep updater artifacts disabled until a separate updater signing, endpoint, and key-retention policy is approved.

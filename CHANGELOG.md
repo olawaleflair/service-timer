@@ -8,6 +8,22 @@ This changelog begins with the initial public documentation work. Earlier reposi
 
 No changes yet.
 
+## [2.0.3] — 2026-08-22
+
+### Security
+
+- Updated the frontend build and test toolchain to patched Vite, Vitest, PostCSS, nanoid, and Babel releases.
+- Updated affected Rust lockfile dependencies, including `tar` and `serde_with`, to compatible patched releases.
+- Resolved the critical and high dependency alerts affecting the supported macOS and Windows release process. The remaining transitive `glib` advisory is Linux-only; Linux is not a supported release target.
+
+### Changed
+
+- No application source, user interface, timer behavior, or local-data behavior changed in this maintenance release.
+
+### Release status
+
+- `v2.0.3` is an unsigned maintenance release. macOS and Windows may show security warnings during installation.
+
 ## [2.0.2] — 2026-08-05
 
 ### Added
