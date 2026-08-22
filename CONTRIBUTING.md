@@ -109,9 +109,9 @@ Do not open community pull requests directly into `main`. Community pull request
 
 ## Releases
 
-Production releases are driven by strict version tags matching `vMAJOR.MINOR.PATCH`. The tagged commit must be reachable from GitHub `main`, and the tag version must match `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`. The workflow creates draft Apple Silicon macOS, Intel macOS, and Windows releases for maintainer review with `--no-sign` until signing is deliberately configured; it does not publish installers automatically. The owner may manually publish a reviewed unsigned release with clear platform warnings, as with `v2.0.2`, but signing/notarization and clean-install testing remain required before broad promotion.
+Production releases are driven by strict version tags matching `vMAJOR.MINOR.PATCH`. The tagged commit must be reachable from GitHub `main`, and the tag version must match `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`. The workflow creates draft Apple Silicon macOS, Intel macOS, and Windows releases for maintainer review with `--no-sign` until signing is deliberately configured; it does not publish installers automatically. The owner may manually publish a reviewed unsigned release with clear platform warnings, as with `v2.0.3`; signing/notarization remains a future distribution hardening option rather than a requirement for the current free release.
 
-The current production line is `2.0.2`, following the major New UI release. Follow [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) for the version bump, promotion, tag, draft-release review, and later signing/publishing steps.
+The current production line is `2.0.3`, following the major New UI release. Follow [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) for the version bump, promotion, tag, draft-release review, and publishing steps.
 
 There is not yet a complete public release runbook, code-signing policy, or updater process. Keep release preparation and promotion notes in the pull request.
 
